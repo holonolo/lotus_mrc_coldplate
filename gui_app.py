@@ -45,8 +45,8 @@ with st.sidebar:
 
     # --- 几何参数 ---
     st.subheader("冷板几何")
-    chip_area = st.number_input("芯片面积 [mm²]", value=314.0, min_value=50, max_value=1000)
-    chip_length = st.number_input("芯片边长 [mm]", value=20.0, min_value=5, max_value=50)
+    chip_area = st.number_input("芯片面积 [mm²]", value=314.0, min_value=50.0, max_value=1000.0)
+    chip_length = st.number_input("芯片边长 [mm]", value=20.0, min_value=5.0, max_value=50.0)
     channel_width = st.number_input("微通道宽度 [mm]", value=0.15, min_value=0.05, max_value=1.0, step=0.01, format="%.3f")
     channel_height = st.number_input("微通道深度 [mm]", value=0.8, min_value=0.1, max_value=2.0, step=0.1)
     fin_width = st.number_input("翅片厚度 [mm]", value=0.15, min_value=0.05, max_value=1.0, step=0.01, format="%.3f")
@@ -275,7 +275,7 @@ with tab5:
     - 文献极值: 633 W/cm², COP=1.8×10⁵, ΔP=25.22 kPa
 
     **两相沸腾 (HFE-7100)**:
-    - 换热系数远高于单相 (3-8倍), 利用汽化潜热
+    - 换热系数远高于同工质单相对流 (3-8倍), 利用汽化潜热
     - 壁温在两相区几乎恒定 (等温特性)
     - COP 在低热流密度时高, 接近CHF时骤降
     - 脉动环状流区换热最强但压降也最大
@@ -291,3 +291,16 @@ with tab5:
 # ===== 底部 =====
 st.divider()
 st.caption("仿荷叶歧管微通道冷板仿真工具 v1.0 | 基于浙大吴赞课题组文献 | Xin Z, et al. Energy (2025) & ECM (2026)")
+
+
+if __name__ == "__main__":
+    try:
+        from streamlit.runtime import exists as st_exists
+    except ImportError:
+        def st_exists(): return False
+
+    if not st_exists():
+        import sys
+        from streamlit.web import cli as stcli
+        sys.argv = ["streamlit", "run", __file__, "--browser.gatherUsageStats", "false"]
+        sys.exit(stcli.main())
