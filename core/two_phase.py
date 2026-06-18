@@ -201,7 +201,7 @@ class TwoPhaseSimulation:
 
     def _calc_two_phase_pressure_drop(self, G: float, x_in: float, x_out: float) -> Tuple[float, float, float, float]:
         Dh = self.geo.hydraulic_diameter * 1e-3
-        L_ch = np.mean(self.geo.ring_radii) * np.pi * 2e-3
+        L_ch = self.geo.L_flow_avg * 1e-3
         rho_l = self.fluid.rho_l
         rho_v = self.fluid.rho_v
         mu_l = self.fluid.mu_l
@@ -227,7 +227,7 @@ class TwoPhaseSimulation:
     def simulate(self,
                  heat_flux_Wcm2: float = 100.0,
                  mass_flow_gs: float = 6.0,
-                 T_inlet: float = 25.0,
+                 T_inlet: float = 20.0,
                  P_operating: float = 101325.0) -> TwoPhaseResult:
         res = TwoPhaseResult()
         res.heat_flux = heat_flux_Wcm2

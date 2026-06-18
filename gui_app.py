@@ -13,6 +13,22 @@ import numpy as np
 # 添加项目根目录到路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import importlib
+import core.geometry
+import core.fluid_properties
+import core.single_phase
+import core.two_phase
+import core.comparison
+import core.visualization
+
+# 强制重载模块以解决 Streamlit 缓存旧代码的问题
+importlib.reload(core.geometry)
+importlib.reload(core.fluid_properties)
+importlib.reload(core.single_phase)
+importlib.reload(core.two_phase)
+importlib.reload(core.comparison)
+importlib.reload(core.visualization)
+
 import streamlit as st
 from core.geometry import ManifoldRingChannelGeometry
 from core.fluid_properties import FluidProperties
@@ -45,22 +61,23 @@ with st.sidebar:
 
     # --- 几何参数 ---
     st.subheader("冷板几何")
-    chip_area = st.number_input("芯片面积 [mm²]", value=314.0, min_value=50.0, max_value=1000.0)
-    chip_length = st.number_input("芯片边长 [mm]", value=20.0, min_value=5.0, max_value=50.0)
-    channel_width = st.number_input("微通道宽度 [mm]", value=0.15, min_value=0.05, max_value=1.0, step=0.01, format="%.3f")
-    channel_height = st.number_input("微通道深度 [mm]", value=0.8, min_value=0.1, max_value=2.0, step=0.1)
-    fin_width = st.number_input("翅片厚度 [mm]", value=0.15, min_value=0.05, max_value=1.0, step=0.01, format="%.3f")
-    manifold_height = st.number_input("歧管层高度 [mm]", value=1.0, min_value=0.2, max_value=3.0, step=0.1)
-    n_rings = st.number_input("环形歧管数", value=6, min_value=2, max_value=15)
+    chip_area = st.number_input("圆形热源面积 [mm²]", value=314.16, min_value=50.0, max_value=1000.0)
+    chip_length = st.number_input("圆形热源直径 [mm]", value=20.0, min_value=5.0, max_value=50.0)
+    channel_width = st.number_input("微通道宽度 [mm]", value=0.30, min_value=0.05, max_value=1.0, step=0.01, format="%.3f")
+    channel_height = st.number_input("微通道深度 [mm]", value=1.4, min_value=0.1, max_value=2.0, step=0.1)
+    fin_width = st.number_input("翅片厚度 [mm]", value=0.30, min_value=0.05, max_value=1.0, step=0.01, format="%.3f")
+    manifold_height = st.number_input("歧管层高度 [mm]", value=1.8, min_value=0.2, max_value=3.0, step=0.1)
+    n_rings = st.number_input("环形微通道数", value=13, min_value=2, max_value=20)
+    n_sectors = st.number_input("总歧管分流流道数", value=16, min_value=4, max_value=32, step=2)
 
     st.divider()
 
     # --- 工况参数 ---
     st.subheader("运行工况")
-    heat_flux = st.number_input("热流密度 [W/cm²]", value=100.0, min_value=1.0, max_value=700.0)
-    sp_flow = st.number_input("单相质量流量 [g/s]", value=5.0, min_value=0.5, max_value=30.0)
+    heat_flux = st.number_input("热流密度 [W/cm²]", value=633.0, min_value=1.0, max_value=700.0)
+    sp_flow = st.number_input("单相质量流量 [g/s]", value=39.0, min_value=0.5, max_value=50.0)
     tp_flow = st.number_input("两相质量流量 [g/s]", value=6.0, min_value=1.0, max_value=20.0)
-    T_inlet = st.number_input("进口温度 [°C]", value=25.0, min_value=10.0, max_value=80.0)
+    T_inlet = st.number_input("进口温度 [°C]", value=20.0, min_value=10.0, max_value=80.0)
 
     st.divider()
 
@@ -80,6 +97,7 @@ geo = ManifoldRingChannelGeometry(
     fin_width=fin_width,
     manifold_height=manifold_height,
     n_rings=n_rings,
+    n_sectors=n_sectors,
 )
 
 # ===== 主界面标签页 =====
@@ -107,16 +125,16 @@ with tab1:
     col_a, col_b, col_c = st.columns(3)
     with col_a:
         st.metric("水力直径", f"{params['hydraulic_diameter_mm']} mm")
-        st.metric("总通道数", f"{params['total_channels']}")
-        st.metric("孔隙率", f"{params['porosity']}")
+        st.metric("总通道数 (等效)", f"{params['total_channels']}")
+        st.metric("微通道层孔隙率", f"{params['porosity']}")
     with col_b:
-        st.metric("芯片面积", f"{params['chip_area_mm2']} mm²")
-        st.metric("换热面积", f"{params['heat_transfer_area_m2']} cm²")
-        st.metric("环形歧管", f"{params['n_rings']} 环")
+        st.metric("加热芯片面积", f"{params['chip_area_mm2']:.2f} mm² (圆形)")
+        st.metric("总换热面积 (Awet)", f"{params['heat_transfer_area_m2']:.4f} cm²")
+        st.metric("同心圆环数 / 总径向流道数", f"{params['n_rings']} 环 / {params['n_sectors']} 根")
     with col_c:
-        st.metric("冷板总厚", f"{params['total_thickness_mm']} mm")
-        st.metric("通道尺寸", f"{channel_width}×{channel_height} mm")
-        st.metric("各环通道数", str(params['channels_per_ring']))
+        st.metric("冷板总厚 / 平均扇区弧长", f"{params['total_thickness_mm']} mm / {params['L_flow_avg_mm']:.3f} mm")
+        st.metric("通道截面尺寸", f"{channel_width}×{channel_height} mm")
+        st.metric("各环扇区弧长 (mm)", ", ".join([f"{l:.2f}" for l in params['L_flow_rings_mm']]))
 
 # ===== Tab2: 单相水冷 =====
 with tab2:

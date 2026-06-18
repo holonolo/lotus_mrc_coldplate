@@ -20,8 +20,8 @@ from .two_phase import TwoPhaseSimulation, TwoPhaseResult, FlowPattern
 from .comparison import ComparativeAnalysis, ComparisonPoint
 from .fluid_properties import FluidProperties
 
-# 中文字体设置 (fallback to English if CJK fonts unavailable)
-plt.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial']
+# 中文字体设置 (使用 SimHei 或 Microsoft YaHei，以支持中文显示)
+plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'DejaVu Sans', 'Arial']
 plt.rcParams['axes.unicode_minus'] = False
 
 
@@ -30,65 +30,80 @@ def plot_geometry_topview(geo: ManifoldRingChannelGeometry,
     """绘制冷板俯视图 - 仿荷叶歧管环形微通道"""
     fig, ax = plt.subplots(1, 1, figsize=(8, 8))
 
-    # 画芯片区域
-    chip_half = geo.chip_length / 2
-    chip_rect = plt.Rectangle((-chip_half, -chip_half), geo.chip_length, geo.chip_length,
-                               linewidth=2, edgecolor='red', facecolor='lightyellow',
-                               label='Chip area', zorder=1)
-    ax.add_patch(chip_rect)
+    # 画芯片加热区域 (圆形热源，直径20mm)
+    chip_radius = geo.chip_length / 2
+    chip_circle = plt.Circle((0, 0), chip_radius,
+                            linewidth=2.5, edgecolor='red', facecolor='#FFFDD0',
+                            alpha=0.6, label='圆形热源 (直径20mm)', zorder=1)
+    ax.add_patch(chip_circle)
 
-    # 画冷板外框
+    # 画冷板外框 (30mm x 30mm)
     cp_half = geo.coldplate_length / 2
     cp_rect = plt.Rectangle((-cp_half, -cp_half), geo.coldplate_length, geo.coldplate_width,
                              linewidth=2, edgecolor='black', facecolor='none',
-                             label='Cold plate', zorder=0)
+                             label='冷板外框 (30x30mm)', zorder=0)
     ax.add_patch(cp_rect)
 
-    # 画环形微通道
+    # 画 13 圈环形微通道
     for i, r in enumerate(geo.ring_radii):
-        n_ch = geo.channels_per_ring[i]
-        # 环形通道
-        circle = plt.Circle((0, 0), r, linewidth=1.5,
-                            edgecolor='steelblue', facecolor='none',
+        circle = plt.Circle((0, 0), r, linewidth=1.2,
+                            edgecolor='#555555', facecolor='none',
                             linestyle='-', zorder=2)
         ax.add_patch(circle)
 
-        # 径向微通道
-        angles = np.linspace(0, 2 * np.pi, n_ch, endpoint=False)
-        for angle in angles:
-            r_in = geo.inlet_diameter / 2
-            r_out = r
-            x_in, y_in = r_in * np.cos(angle), r_in * np.sin(angle)
-            x_out, y_out = r_out * np.cos(angle), r_out * np.sin(angle)
-            ax.plot([x_in, x_out], [y_in, y_out], 'steelblue', linewidth=0.5, zorder=2)
+    # 画 8 根窄进液歧管 (分流缝宽 0.5mm, 处于对角线及偏置夹角)
+    # 夹角：22.5, 67.5, 112.5, 157.5, 202.5, 247.5, 292.5, 337.5 度
+    inlet_angles = np.radians([22.5, 67.5, 112.5, 157.5, 202.5, 247.5, 292.5, 337.5])
+    for angle in inlet_angles:
+        r_start = 0.0
+        r_end = chip_radius
+        x_start, y_start = r_start * np.cos(angle), r_start * np.sin(angle)
+        x_end, y_end = r_end * np.cos(angle), r_end * np.sin(angle)
+        ax.plot([x_start, x_end], [y_start, y_end], color='#1f77b4', linewidth=1.8, 
+                solid_capstyle='round', zorder=3)
 
-    # 中心入口
+    # 画 8 根宽出液歧管 (分流缝宽 1.5mm, 处于 0, 45, 90 ... 度)
+    # 夹角：0, 45, 90, 135, 180, 225, 270, 315 度
+    outlet_angles = np.radians([0, 45, 90, 135, 180, 225, 270, 315])
+    for angle in outlet_angles:
+        r_start = geo.inlet_diameter / 2
+        r_end = chip_radius + 2.0
+        x_start, y_start = r_start * np.cos(angle), r_start * np.sin(angle)
+        x_end, y_end = r_end * np.cos(angle), r_end * np.sin(angle)
+        ax.plot([x_start, x_end], [y_start, y_end], color='#d62728', linewidth=4.0, 
+                solid_capstyle='round', zorder=3)
+
+    # 中心总进口
     inlet = plt.Circle((0, 0), geo.inlet_diameter / 2, linewidth=2,
-                        edgecolor='darkblue', facecolor='lightblue',
-                        label='Inlet', zorder=3)
+                        edgecolor='darkblue', facecolor='#a1c9f4',
+                        label='中心总入口 (直径4.5mm)', zorder=4)
     ax.add_patch(inlet)
 
-    # 出口 (4个角)
-    for dx, dy in [(-1, -1), (-1, 1), (1, -1), (1, 1)]:
-        outlet = plt.Circle((dx * (cp_half - 2), dy * (cp_half - 2)), 1.5,
-                            linewidth=1.5, edgecolor='darkred', facecolor='lightsalmon',
+    # 绘制 4 个大出口腔室 (苜蓿叶状分布在 0, 90, 180, 270度方向)
+    for angle_deg in [0, 90, 180, 270]:
+        angle = np.radians(angle_deg)
+        x = 13.0 * np.cos(angle)
+        y = 13.0 * np.sin(angle)
+        outlet = plt.Circle((x, y), 3.0, linewidth=1.5, 
+                            edgecolor='#8c564b', facecolor='#ff9896',
                             zorder=3)
         ax.add_patch(outlet)
-    # 标注一个出口
-    ax.annotate('Outlet', xy=(cp_half - 2, cp_half - 2), fontsize=8,
-                xytext=(cp_half + 1, cp_half + 1),
-                arrowprops=dict(arrowstyle='->', color='darkred'))
+
+    # 标注进出液流道示例
+    ax.plot([], [], color='#1f77b4', linewidth=2.0, label='窄进液歧管 (8根, 0.5mm)')
+    ax.plot([], [], color='#d62728', linewidth=4.0, label='宽出液歧管 (8根, 1.5mm)')
+    ax.scatter([], [], color='#ff9896', edgecolors='#8c564b', s=100, label='出口腔室 (4个)')
 
     # 中心标注
-    ax.annotate('Inlet', xy=(0, 0), fontsize=10, ha='center', va='center',
-                color='darkblue', fontweight='bold')
+    ax.annotate('总入口', xy=(0, 0), fontsize=9, ha='center', va='center',
+                color='darkblue', fontweight='bold', zorder=5)
 
     ax.set_xlim(-cp_half - 3, cp_half + 3)
     ax.set_ylim(-cp_half - 3, cp_half + 3)
     ax.set_aspect('equal')
     ax.set_xlabel('x [mm]')
     ax.set_ylabel('y [mm]')
-    ax.set_title('Lotus Leaf-Inspired MRC Cold Plate - Top View')
+    ax.set_title('仿荷叶歧管环形微通道冷板 - 结构俯视图')
     ax.legend(loc='upper left', fontsize=8)
     ax.grid(True, alpha=0.3)
 
@@ -110,11 +125,11 @@ def plot_geometry_crosssection(geo: ManifoldRingChannelGeometry,
     y_manifold_top = y_ch_top + geo.manifold_height
 
     # 基板
-    ax.fill_between([-15, 15], y_base, y_ch_bottom, color='peru', alpha=0.7, label='Cu base')
+    ax.fill_between([-15, 15], y_base, y_ch_bottom, color='peru', alpha=0.7, label='铜基底')
     # 微通道层
-    ax.fill_between([-15, 15], y_ch_bottom, y_ch_top, color='lightblue', alpha=0.5, label='Microchannel')
+    ax.fill_between([-15, 15], y_ch_bottom, y_ch_top, color='lightblue', alpha=0.5, label='微通道层')
     # 歧管层
-    ax.fill_between([-15, 15], y_ch_top, y_manifold_top, color='lightgreen', alpha=0.5, label='Manifold')
+    ax.fill_between([-15, 15], y_ch_top, y_manifold_top, color='lightgreen', alpha=0.5, label='歧管流道层')
 
     # 画微通道 (锯齿状)
     x = -15
@@ -143,10 +158,10 @@ def plot_geometry_crosssection(geo: ManifoldRingChannelGeometry,
     for x_pos in np.linspace(-10, 10, 5):
         ax.annotate('', xy=(x_pos, y_ch_bottom), xytext=(x_pos, y_base - 1),
                     arrowprops=dict(arrowstyle='->', color='red', lw=2))
-    ax.text(0, y_base - 1.5, 'Heat flux (q")', ha='center', fontsize=10, color='red')
+    ax.text(0, y_base - 1.5, '芯片热流密度 (q")', ha='center', fontsize=10, color='red')
 
     # 流动箭头
-    ax.annotate('Flow in', xy=(-14, y_ch_top + geo.manifold_height / 2), fontsize=9,
+    ax.annotate('工质进口', xy=(-14, y_ch_top + geo.manifold_height / 2), fontsize=9,
                 color='blue', fontweight='bold')
     ax.annotate('', xy=(-12, y_ch_top + geo.manifold_height / 2),
                 xytext=(-14, y_ch_top + geo.manifold_height / 2),
