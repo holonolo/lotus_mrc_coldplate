@@ -9,7 +9,7 @@ import os
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from matplotlib.patches import FancyArrowPatch, Circle, Arc
+from matplotlib.patches import FancyArrowPatch, Circle, Arc, Wedge
 from matplotlib.collections import PatchCollection
 import matplotlib.patches as mpatches
 from typing import List, Optional, Dict
@@ -25,93 +25,121 @@ from core.comparison import ComparativeAnalysis, ComparisonPoint
 from core.fluid_properties import FluidProperties
 
 # 中文字体设置 (使用 SimHei 或 Microsoft YaHei，以支持中文显示)
-plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'DejaVu Sans', 'Arial']
+plt.rcParams['font.sans-serif'] = ['Microsoft YaHei', 'SimHei', 'DejaVu Sans', 'Arial']
 plt.rcParams['axes.unicode_minus'] = False
 
 
 def plot_geometry_topview(geo: ManifoldRingChannelGeometry,
                           save_path: str = None) -> plt.Figure:
-    """绘制冷板俯视图 - 仿荷叶歧管环形微通道"""
-    fig, ax = plt.subplots(1, 1, figsize=(8, 8))
+    """绘制冷板俯视图 - 仿荷叶歧管环形微通道
 
-    # 画芯片加热区域 (圆形热源，直径20mm)
-    chip_radius = geo.chip_length / 2
-    chip_circle = plt.Circle((0, 0), chip_radius,
-                            linewidth=2.5, edgecolor='red', facecolor='#FFFDD0',
-                            alpha=0.6, label='圆形热源 (直径20mm)', zorder=1)
-    ax.add_patch(chip_circle)
-
-    # 画冷板外框 (30mm x 30mm)
+    结构说明:
+    - 16个扇形歧管缝 (Sector), 交替为: 8窄进液 (0.5mm) + 8宽出液 (1.5mm)
+    - 13圈同心圆环形微通道, 流体在环中沿圆周流动
+    - 中心进水, 经过环形通道后从扇形出口收集
+    """
+    fig, ax = plt.subplots(1, 1, figsize=(10, 10))
+    r_chip = geo.chip_length / 2  # 热源半径 [mm]
     cp_half = geo.coldplate_length / 2
-    cp_rect = plt.Rectangle((-cp_half, -cp_half), geo.coldplate_length, geo.coldplate_width,
-                             linewidth=2, edgecolor='black', facecolor='none',
-                             label='冷板外框 (30x30mm)', zorder=0)
-    ax.add_patch(cp_rect)
+    r_max = max(geo.ring_radii) + geo.ring_spacing  # 最外圈半径
 
-    # 画 13 圈环形微通道
-    for i, r in enumerate(geo.ring_radii):
-        circle = plt.Circle((0, 0), r, linewidth=1.2,
-                            edgecolor='#555555', facecolor='none',
-                            linestyle='-', zorder=2)
+    # === 冷板外框 ===
+    rect = plt.Rectangle((-cp_half, -cp_half), geo.coldplate_length, geo.coldplate_width,
+                         linewidth=2, edgecolor='black', facecolor='#fafafa', zorder=0)
+    ax.add_patch(rect)
+
+    # === 扇区角度计算 ===
+    dtheta = 2 * np.pi / geo.n_sectors  # 22.5°
+    r_ref = r_chip
+    theta_in = geo.inlet_slot_width / r_ref
+    theta_out = geo.outlet_slot_width / r_ref
+
+    # 偶数扇区=宽出液(红色), 奇数扇区=窄进液(蓝色)
+    # === 底色: 16个扇区 ===
+    for i in range(geo.n_sectors):
+        a_center = i * dtheta
+        a_start = a_center - dtheta / 2
+        a_end = a_center + dtheta / 2
+        if i % 2 == 0:
+            fc = '#ffeeee'
+            ec = '#dd8888'
+        else:
+            fc = '#eeeeff'
+            ec = '#8888dd'
+        wedge = Wedge((0, 0), r_max + 2,
+                      np.degrees(a_start), np.degrees(a_end),
+                      facecolor=fc, edgecolor=ec, linewidth=0.5, alpha=0.3, zorder=1)
+        ax.add_patch(wedge)
+
+    # === 13圈环形微通道 (完整圆环) ===
+    for r in geo.ring_radii:
+        circle = plt.Circle((0, 0), r, linewidth=0.6, edgecolor='#888888',
+                            facecolor='none', linestyle='-', zorder=2)
         ax.add_patch(circle)
 
-    # 画 8 根窄进液歧管 (分流缝宽 0.5mm, 处于对角线及偏置夹角)
-    # 夹角：22.5, 67.5, 112.5, 157.5, 202.5, 247.5, 292.5, 337.5 度
-    inlet_angles = np.radians([22.5, 67.5, 112.5, 157.5, 202.5, 247.5, 292.5, 337.5])
-    for angle in inlet_angles:
-        r_start = 0.0
-        r_end = chip_radius
-        x_start, y_start = r_start * np.cos(angle), r_start * np.sin(angle)
-        x_end, y_end = r_end * np.cos(angle), r_end * np.sin(angle)
-        ax.plot([x_start, x_end], [y_start, y_end], color='#1f77b4', linewidth=1.8, 
-                solid_capstyle='round', zorder=3)
+    # === 进液/出液扇形歧管缝 (用实心扇区叠加) ===
+    for i in range(geo.n_sectors):
+        a_center = i * dtheta
+        if i % 2 == 0:
+            half_w = theta_out / 2
+            fc, ec = '#ff9896', '#d62728'
+        else:
+            half_w = theta_in / 2
+            fc, ec = '#a1c9f4', '#1f77b4'
 
-    # 画 8 根宽出液歧管 (分流缝宽 1.5mm, 处于 0, 45, 90 ... 度)
-    # 夹角：0, 45, 90, 135, 180, 225, 270, 315 度
-    outlet_angles = np.radians([0, 45, 90, 135, 180, 225, 270, 315])
-    for angle in outlet_angles:
-        r_start = geo.inlet_diameter / 2
-        r_end = chip_radius + 2.0
-        x_start, y_start = r_start * np.cos(angle), r_start * np.sin(angle)
-        x_end, y_end = r_end * np.cos(angle), r_end * np.sin(angle)
-        ax.plot([x_start, x_end], [y_start, y_end], color='#d62728', linewidth=4.0, 
-                solid_capstyle='round', zorder=3)
+        a_start = a_center - half_w
+        a_end = a_center + half_w
+        wedge = Wedge((0, 0), r_max + 1,
+                      np.degrees(a_start), np.degrees(a_end),
+                      facecolor=fc, edgecolor=ec, linewidth=1.5, alpha=0.7, zorder=3)
+        ax.add_patch(wedge)
 
-    # 中心总进口
-    inlet = plt.Circle((0, 0), geo.inlet_diameter / 2, linewidth=2,
-                        edgecolor='darkblue', facecolor='#a1c9f4',
-                        label='中心总入口 (直径4.5mm)', zorder=4)
+        # 流动方向箭头 (只在最外侧可见位置画)
+        r_arrow = r_max * 0.75
+        ax.annotate('',
+                    xy=(r_arrow * np.cos(a_center), r_arrow * np.sin(a_center)),
+                    xytext=(r_arrow * 0.4 * np.cos(a_center), r_arrow * 0.4 * np.sin(a_center)),
+                    arrowprops=dict(arrowstyle='->', color=ec, lw=1.2), zorder=4)
+
+    # === 中心进水口 ===
+    inlet = plt.Circle((0, 0), geo.inlet_diameter / 2,
+                       edgecolor='darkblue', facecolor='#a1c9f4', alpha=0.8, zorder=3)
     ax.add_patch(inlet)
+    ax.annotate('IN', xy=(0, 0), ha='center', va='center', fontsize=10,
+                color='darkblue', fontweight='bold', zorder=4)
 
-    # 绘制 4 个大出口腔室 (苜蓿叶状分布在 0, 90, 180, 270度方向)
-    for angle_deg in [0, 90, 180, 270]:
+    # === 热源区域 (芯片) ===
+    chip = plt.Circle((0, 0), r_chip, linewidth=2.5, edgecolor='red',
+                      facecolor='none', linestyle='--', zorder=3)
+    ax.add_patch(chip)
+
+    # === 4个出口 (冷板四角外侧) ===
+    for angle_deg in [45, 135, 225, 315]:
         angle = np.radians(angle_deg)
-        x = 13.0 * np.cos(angle)
-        y = 13.0 * np.sin(angle)
-        outlet = plt.Circle((x, y), 3.0, linewidth=1.5, 
-                            edgecolor='#8c564b', facecolor='#ff9896',
-                            zorder=3)
+        x = cp_half * np.cos(angle) * 0.85
+        y = cp_half * np.sin(angle) * 0.85
+        outlet = plt.Circle((x, y), 2.5, edgecolor='#8c564b', facecolor='#ff9896', zorder=3)
         ax.add_patch(outlet)
+        ax.annotate('OUT', xy=(x, y), ha='center', va='center', fontsize=7,
+                    color='#8c564b', fontweight='bold', zorder=4)
 
-    # 标注进出液流道示例
-    ax.plot([], [], color='#1f77b4', linewidth=2.0, label='窄进液歧管 (8根, 0.5mm)')
-    ax.plot([], [], color='#d62728', linewidth=4.0, label='宽出液歧管 (8根, 1.5mm)')
-    ax.scatter([], [], color='#ff9896', edgecolors='#8c564b', s=100, label='出口腔室 (4个)')
+    # === 图例与标注 ===
+    ax.plot([], [], color='#1f77b4', linewidth=3, label='窄进液歧管 (8根)')
+    ax.plot([], [], color='#d62728', linewidth=3, label='宽出液歧管 (8根)')
+    ax.plot([], [], color='#555555', linewidth=1, label=f'环形微通道 ({geo.n_rings}圈)')
+    ax.plot([], [], color='red', linestyle='--', linewidth=2, label=f'热源区域 Ø{geo.chip_length}mm')
+    ax.scatter([], [], color='#ff9896', edgecolors='#8c564b', s=80, label='出口 (4个)')
 
-    # 中心标注
-    ax.annotate('总入口', xy=(0, 0), fontsize=9, ha='center', va='center',
-                color='darkblue', fontweight='bold', zorder=5)
-
-    ax.set_xlim(-cp_half - 3, cp_half + 3)
-    ax.set_ylim(-cp_half - 3, cp_half + 3)
+    ax.set_xlim(-cp_half - 2, cp_half + 2)
+    ax.set_ylim(-cp_half - 2, cp_half + 2)
     ax.set_aspect('equal')
     ax.set_xlabel('x [mm]')
     ax.set_ylabel('y [mm]')
-    ax.set_title('仿荷叶歧管环形微通道冷板 - 结构俯视图')
+    ax.set_title('仿荷叶歧管环形微通道冷板 - 结构俯视图', fontsize=13)
     ax.legend(loc='upper left', fontsize=8)
-    ax.grid(True, alpha=0.3)
-
+    ax.grid(True, alpha=0.2)
     plt.tight_layout()
+
     if save_path:
         fig.savefig(save_path, dpi=200, bbox_inches='tight')
     return fig
@@ -209,8 +237,8 @@ def plot_comparison_curves(analysis: ComparativeAnalysis,
     ax = axes[0, 0]
     ax.plot(qf_range, sp_h, 'b-o', markersize=3, label='SP-Water')
     ax.plot(qf_range, tp_h, 'r-s', markersize=3, label='TP-HFE7100')
-    ax.set_xlabel('Heat flux [W/cm²]')
-    ax.set_ylabel('h [W/(cm²·K)]')
+    ax.set_xlabel('Heat flux [W/cm2]')
+    ax.set_ylabel('h [W/(cm2.K)]')
     ax.set_title('Heat Transfer Coefficient')
     ax.legend()
     ax.grid(True, alpha=0.3)
@@ -219,8 +247,8 @@ def plot_comparison_curves(analysis: ComparativeAnalysis,
     ax = axes[0, 1]
     ax.plot(qf_range, sp_dP, 'b-o', markersize=3, label='SP-Water')
     ax.plot(qf_range, tp_dP, 'r-s', markersize=3, label='TP-HFE7100')
-    ax.set_xlabel('Heat flux [W/cm²]')
-    ax.set_ylabel('ΔP [kPa]')
+    ax.set_xlabel('Heat flux [W/cm2]')
+    ax.set_ylabel('DP [kPa]')
     ax.set_title('Pressure Drop')
     ax.legend()
     ax.grid(True, alpha=0.3)
@@ -229,8 +257,8 @@ def plot_comparison_curves(analysis: ComparativeAnalysis,
     ax = axes[0, 2]
     ax.plot(qf_range, sp_Rth, 'b-o', markersize=3, label='SP-Water')
     ax.plot(qf_range, tp_Rth, 'r-s', markersize=3, label='TP-HFE7100')
-    ax.set_xlabel('Heat flux [W/cm²]')
-    ax.set_ylabel('Rth [(cm²·K)/W]')
+    ax.set_xlabel('Heat flux [W/cm2]')
+    ax.set_ylabel('Rth [(cm2.K)/W]')
     ax.set_title('Thermal Resistance')
     ax.legend()
     ax.grid(True, alpha=0.3)
@@ -239,7 +267,7 @@ def plot_comparison_curves(analysis: ComparativeAnalysis,
     ax = axes[1, 0]
     ax.semilogy(qf_range, sp_COP, 'b-o', markersize=3, label='SP-Water')
     ax.semilogy(qf_range, tp_COP, 'r-s', markersize=3, label='TP-HFE7100')
-    ax.set_xlabel('Heat flux [W/cm²]')
+    ax.set_xlabel('Heat flux [W/cm2]')
     ax.set_ylabel('COP')
     ax.set_title('Coefficient of Performance')
     ax.legend()
@@ -250,8 +278,8 @@ def plot_comparison_curves(analysis: ComparativeAnalysis,
     ax.plot(qf_range, sp_Tw, 'b-o', markersize=3, label='SP-Water')
     ax.plot(qf_range, tp_Tw, 'r-s', markersize=3, label='TP-HFE7100')
     ax.axhline(y=100, color='gray', linestyle='--', alpha=0.5, label='T_max limit')
-    ax.set_xlabel('Heat flux [W/cm²]')
-    ax.set_ylabel('T_wall [°C]')
+    ax.set_xlabel('Heat flux [W/cm2]')
+    ax.set_ylabel('T_wall [C]')
     ax.set_title('Wall Temperature')
     ax.legend()
     ax.grid(True, alpha=0.3)
@@ -259,7 +287,7 @@ def plot_comparison_curves(analysis: ComparativeAnalysis,
     # 6. 换热增强比
     ax = axes[1, 2]
     ax.plot(qf_range, h_ratio, 'g-^', markersize=3)
-    ax.set_xlabel('Heat flux [W/cm²]')
+    ax.set_xlabel('Heat flux [W/cm2]')
     ax.set_ylabel('h_TP / h_SP')
     ax.set_title('Two-Phase Enhancement Ratio')
     ax.grid(True, alpha=0.3)
@@ -274,7 +302,7 @@ def plot_comparison_curves(analysis: ComparativeAnalysis,
 def plot_boiling_curve(tp_sim: TwoPhaseSimulation,
                        mass_flow_gs: float = 6.0,
                        save_path: str = None) -> plt.Figure:
-    """绘制沸腾曲线 (q" vs ΔT_sat)"""
+    """绘制沸腾曲线 (q vs DT_sat)"""
     qf_range = np.linspace(5, 250, 50)
     delta_T_sat = []
     h_list = []
@@ -287,7 +315,6 @@ def plot_boiling_curve(tp_sim: TwoPhaseSimulation,
         delta_T_sat.append(max(dT, 0.1))
         h_list.append(res.h_conv_cm2)
         pattern_names.append(res.flow_pattern_name)
-        # 颜色映射
         fp = res.flow_pattern
         color_map = {
             FlowPattern.BUBBLY: 0,
@@ -300,28 +327,24 @@ def plot_boiling_curve(tp_sim: TwoPhaseSimulation,
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
 
-    # 沸腾曲线
     scatter = ax1.scatter(delta_T_sat, qf_range, c=pattern_colors, cmap='viridis',
                           s=20, edgecolors='none')
-    ax1.set_xlabel('ΔT_sat = T_wall - T_sat [°C]')
-    ax1.set_ylabel('Heat flux q" [W/cm²]')
+    ax1.set_xlabel('DT_sat = T_wall - T_sat [C]')
+    ax1.set_ylabel('Heat flux q [W/cm2]')
     ax1.set_title('Boiling Curve')
     ax1.grid(True, alpha=0.3)
 
-    # 添加流型图例
     cbar = plt.colorbar(scatter, ax=ax1, ticks=[0, 1, 2, 3, 4])
     cbar.ax.set_yticklabels(['Bubbly', 'Slug', 'Annular', 'Churn', 'Mist'])
 
-    # 换热系数
     ax2.plot(qf_range, h_list, 'r-', linewidth=2)
-    ax2.set_xlabel('Heat flux q" [W/cm²]')
-    ax2.set_ylabel('h [W/(cm²·K)]')
+    ax2.set_xlabel('Heat flux q [W/cm2]')
+    ax2.set_ylabel('h [W/(cm2.K)]')
     ax2.set_title('Two-Phase HTC vs Heat Flux')
     ax2.grid(True, alpha=0.3)
 
-    # CHF 线
     chf_val = tp_sim.simulate(100, mass_flow_gs).CHF
-    ax2.axvline(x=chf_val, color='red', linestyle='--', alpha=0.7, label=f'CHF={chf_val:.0f} W/cm²')
+    ax2.axvline(x=chf_val, color='red', linestyle='--', alpha=0.7, label=f'CHF={chf_val:.0f} W/cm2')
     ax2.legend()
 
     fig.suptitle(f'Flow Boiling in Lotus MRC (HFE-7100, G={mass_flow_gs} g/s)', fontsize=12)
@@ -344,16 +367,14 @@ def plot_sensitivity_analysis(sim_type: str = "single_phase",
         qf_range = np.linspace(50, 633, 25)
         mf_range = np.linspace(2, 20, 20)
 
-        # 热流密度敏感性
         COP_vs_qf = []
         for qf in qf_range:
             res = sim.simulate(qf, 5.0)
             COP_vs_qf.append(res.COP)
         axes[0].plot(qf_range, COP_vs_qf, 'b-', linewidth=2)
-        axes[0].set_xlabel('Heat flux [W/cm²]')
+        axes[0].set_xlabel('Heat flux [W/cm2]')
         axes[0].set_ylabel('COP')
 
-        # 流量敏感性
         COP_vs_mf = []
         for mf in mf_range:
             res = sim.simulate(200, mf)
@@ -362,14 +383,13 @@ def plot_sensitivity_analysis(sim_type: str = "single_phase",
         axes[1].set_xlabel('Mass flow rate [g/s]')
         axes[1].set_ylabel('COP')
 
-        # 热阻 vs 流量
         Rth_vs_mf = []
         for mf in mf_range:
             res = sim.simulate(200, mf)
             Rth_vs_mf.append(res.thermal_resistance)
         axes[2].plot(mf_range, Rth_vs_mf, 'r-', linewidth=2)
         axes[2].set_xlabel('Mass flow rate [g/s]')
-        axes[2].set_ylabel('Rth [(cm²·K)/W]')
+        axes[2].set_ylabel('Rth [(cm2.K)/W]')
 
     else:
         sim = TwoPhaseSimulation(geo, FluidProperties("HFE7100"))
@@ -382,7 +402,7 @@ def plot_sensitivity_analysis(sim_type: str = "single_phase",
             res = sim.simulate(qf, 6.0)
             COP_vs_qf.append(res.COP)
         axes[0].plot(qf_range, COP_vs_qf, 'b-', linewidth=2)
-        axes[0].set_xlabel('Heat flux [W/cm²]')
+        axes[0].set_xlabel('Heat flux [W/cm2]')
         axes[0].set_ylabel('COP')
         axes[0].axvline(x=267, color='red', linestyle='--', alpha=0.5, label='CHF')
         axes[0].legend()
@@ -401,7 +421,7 @@ def plot_sensitivity_analysis(sim_type: str = "single_phase",
             Rth_vs_mf.append(res.thermal_resistance)
         axes[2].plot(mf_range, Rth_vs_mf, 'r-', linewidth=2)
         axes[2].set_xlabel('Mass flow rate [g/s]')
-        axes[2].set_ylabel('Rth [(cm²·K)/W]')
+        axes[2].set_ylabel('Rth [(cm2.K)/W]')
 
     axes[0].set_title('COP vs Heat Flux')
     axes[1].set_title('COP vs Flow Rate')
