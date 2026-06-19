@@ -86,7 +86,6 @@ lotus_mrc_coldplate/
 │   ├── fluid_properties.py       # 流体物性查询（基于CoolProp）
 │   ├── single_phase.py           # 单相水冷分区计算模型
 │   ├── two_phase.py              # 两相沸腾计算模型（Gungor-Winterton 第一性原理版）
-│   ├── two_phase_v2.py           # 两相修正实验版（增强因子独立处理）
 │   ├── comparison.py             # 单/两相数据对比及报告生成
 │   └── visualization.py          # 图形绘制与可视化功能
 ├── results/                      # 命令行模式保存的图表输出目录
