@@ -7,10 +7,14 @@ import numpy as np
 from typing import Dict, List, Tuple
 from dataclasses import dataclass
 
-from .geometry import ManifoldRingChannelGeometry
-from .fluid_properties import FluidProperties
-from .single_phase import SinglePhaseSimulation, SinglePhaseResult
-from .two_phase import TwoPhaseSimulation, TwoPhaseResult, FlowPattern
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from core.geometry import ManifoldRingChannelGeometry
+from core.fluid_properties import FluidProperties
+from core.single_phase import SinglePhaseSimulation, SinglePhaseResult
+from core.two_phase import TwoPhaseSimulation, TwoPhaseResult, FlowPattern
 
 
 @dataclass

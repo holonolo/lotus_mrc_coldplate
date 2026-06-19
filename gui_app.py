@@ -206,7 +206,7 @@ with tab3:
     with col4:
         st.metric("热阻 Rth", f"{tp_res.thermal_resistance:.4f} (cm²·K)/W")
         st.metric("COP", f"{tp_res.COP:.0f}")
-        st.metric("CHF裕度", f"{tp_res.CHF_margin*100:.1f}%")
+        st.metric("CHF裕度", f"{tp_res.CHF_margin:.1f}%")
 
     st.divider()
 

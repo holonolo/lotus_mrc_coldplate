@@ -14,11 +14,15 @@ from matplotlib.collections import PatchCollection
 import matplotlib.patches as mpatches
 from typing import List, Optional, Dict
 
-from .geometry import ManifoldRingChannelGeometry
-from .single_phase import SinglePhaseSimulation, SinglePhaseResult
-from .two_phase import TwoPhaseSimulation, TwoPhaseResult, FlowPattern
-from .comparison import ComparativeAnalysis, ComparisonPoint
-from .fluid_properties import FluidProperties
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from core.geometry import ManifoldRingChannelGeometry
+from core.single_phase import SinglePhaseSimulation, SinglePhaseResult
+from core.two_phase import TwoPhaseSimulation, TwoPhaseResult, FlowPattern
+from core.comparison import ComparativeAnalysis, ComparisonPoint
+from core.fluid_properties import FluidProperties
 
 # 中文字体设置 (使用 SimHei 或 Microsoft YaHei，以支持中文显示)
 plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'DejaVu Sans', 'Arial']
