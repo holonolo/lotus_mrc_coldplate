@@ -293,7 +293,7 @@ def plot_boiling_curve(tp_sim: TwoPhaseSimulation,
             FlowPattern.BUBBLY: 0,
             FlowPattern.SLUG: 1,
             FlowPattern.ANNULAR: 2,
-            FlowPattern.PULSATING_ANNULAR: 3,
+            FlowPattern.CHURN: 3,
             FlowPattern.MIST: 4,
         }
         pattern_colors.append(color_map.get(fp, 0))
@@ -310,7 +310,7 @@ def plot_boiling_curve(tp_sim: TwoPhaseSimulation,
 
     # 添加流型图例
     cbar = plt.colorbar(scatter, ax=ax1, ticks=[0, 1, 2, 3, 4])
-    cbar.ax.set_yticklabels(['Bubbly', 'Slug', 'Annular', 'Pulsating\nAnnular', 'Mist'])
+    cbar.ax.set_yticklabels(['Bubbly', 'Slug', 'Annular', 'Churn', 'Mist'])
 
     # 换热系数
     ax2.plot(qf_range, h_list, 'r-', linewidth=2)
