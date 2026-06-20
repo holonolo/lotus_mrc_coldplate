@@ -243,7 +243,7 @@ class SinglePhaseSimulation:
         f_path = self._calc_friction_factor(Re_path)
         dyn_p = G_path ** 2 / (2 * self.fluid.rho_l)
 
-        # 4. 歧管与进出口段局部阻力计算
+        # 4. 歧管与进出口段局部阻力计算 (Borda-Carnot 理论)
         # 中心入口孔截面积 [m²]
         A_inlet = np.pi * (self.geo.inlet_diameter * 1e-3) ** 2 / 4
         # 歧管缝隙数量(默认扇区的一半为进水口)
@@ -252,19 +252,35 @@ class SinglePhaseSimulation:
         A_inlet_slots = n_inlet_slots * self.geo.inlet_slot_width * self.geo.manifold_height * 1e-6
         # 宽出液歧管缝总截面积 [m²]
         A_outlet_slots = n_inlet_slots * self.geo.outlet_slot_width * self.geo.manifold_height * 1e-6
-        
+
         # 对应流速计算
         G_inlet = m_dot / max(A_inlet, 1e-12)
         G_inlet_slots = m_dot / max(A_inlet_slots, 1e-12)
         G_outlet_slots = m_dot / max(A_outlet_slots, 1e-12)
-        
-        # 阻力损失计算：
-        # 中心入口阻力损失 (突收缩/阻力系数取1.5)
-        delta_P_inlet = 1.5 * G_inlet ** 2 / (2 * self.fluid.rho_l)
-        # 进出歧管缝阻力损失 (阻力系数分别设为 1.0)
+
+        # 阻力损失计算 (Borda-Carnot 突缩/突扩 + 转弯/分流损失):
+        # 突缩: K_cont = 0.5 * (1 - sigma), sigma = A2/A1 (小/大)
+        # 突扩: K_exp = (1 - sigma)^2, sigma = A1/A2 (小/大)
+        # 90°弯头: K_bend = 1.1 (Idelchik)
+        # 分配损失: K_branch = 0.5 (流体分配到多通道)
+
+        # 中心入口 → 歧管分配: 突缩 + 90°转弯 + 分流
+        sigma_inlet = min(A_inlet_slots / max(A_inlet, 1e-12), 1.0)
+        K_inlet = 0.5 * (1 - sigma_inlet) + 1.1 + 0.5  # 突缩 + 转弯 + 分流
+        delta_P_inlet = K_inlet * G_inlet ** 2 / (2 * self.fluid.rho_l)
+
+        # 进液歧管缝 → 微通道: 突缩 + 90°转弯
+        A_micro_total = self.geo.effective_cross_area
+        sigma_slot_in = min(A_micro_total / max(A_inlet_slots, 1e-12), 1.0)
+        K_slot_in = 0.5 * (1 - sigma_slot_in) + 1.1  # 突缩 + 转弯
+
+        # 微通道 → 出液歧管缝: 突扩 + 90°转弯
+        sigma_slot_out = min(A_outlet_slots / max(A_micro_total, 1e-12), 1.0)
+        K_slot_out = (1 - sigma_slot_out) ** 2 + 1.1  # 突扩 + 转弯
+
         delta_P_slots = (
-            1.0 * G_inlet_slots ** 2 / (2 * self.fluid.rho_l)
-            + 1.0 * G_outlet_slots ** 2 / (2 * self.fluid.rho_l)
+            K_slot_in * G_inlet_slots ** 2 / (2 * self.fluid.rho_l)
+            + K_slot_out * G_outlet_slots ** 2 / (2 * self.fluid.rho_l)
         )
 
         T_wall_rings = []
@@ -299,9 +315,17 @@ class SinglePhaseSimulation:
             # 流动压降：
             # 沿程摩擦阻力损失
             delta_P_friction_i = f_path * L_over_Dh * dyn_p
-            # 分流折返局部阻力系数模型 (受扇区数影响)
-            K_local_i = 2.5 + 0.2 * n_sectors
-            delta_P_local_i = K_local_i * dyn_p
+            # 分流折返局部阻力 (Borda-Carnot + 90°弯头理论)
+            # 每条路径有2次90°弯头(进液转弯+出液转弯)
+            # K_bend = 1.1 per 90° bend (Idelchik)
+            # + 收缩/扩张损失已在 delta_P_slots 中计入
+            K_bend = 2 * 1.1  # 2次90°弯头
+            # Dean 数修正 (曲率效应): 弯头处二次流增强混合
+            r_bend = L_i / np.pi  # 等效弯曲半径
+            Dean = Re_path * np.sqrt(Dh / max(2 * r_bend, Dh))
+            if Dean > 10:
+                K_bend *= (1 + 0.15 * np.log10(Dean / 10))
+            delta_P_local_i = K_bend * dyn_p
 
             # 存储该环计算数据
             T_wall_rings.append(T_wall_i)
