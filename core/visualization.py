@@ -34,9 +34,9 @@ def plot_geometry_topview(geo: ManifoldRingChannelGeometry,
     """绘制冷板俯视图 - 仿荷叶歧管环形微通道
 
     结构说明:
-    - 16个扇形歧管缝 (Sector), 交替为: 8窄进液 (0.5mm) + 8宽出液 (1.5mm)
-    - 13圈同心圆环形微通道, 流体在环中沿圆周流动
-    - 中心进水, 经过环形通道后从扇形出口收集
+    - 16个扇形歧管 (Sector), 进液与出液歧管交替排布
+    - 进液和出液歧管为楔形开口扇区 (具有不同宽度: 窄的为进液, 宽的为出液), 暴露出下方的同心微通道
+    - 它们交替排布, 之间隔着厚实的固体径向壁面, 遮挡了微通道
     """
     fig, ax = plt.subplots(1, 1, figsize=(10, 10))
     r_chip = geo.chip_length / 2  # 热源半径 [mm]
@@ -48,69 +48,107 @@ def plot_geometry_topview(geo: ManifoldRingChannelGeometry,
                          linewidth=2, edgecolor='black', facecolor='#fafafa', zorder=0)
     ax.add_patch(rect)
 
+    # === 同心圆环形微通道 (完整圆环, 位于较底层 zorder=2) ===
+    for r in geo.ring_radii:
+        circle = plt.Circle((0, 0), r, linewidth=0.6, edgecolor='#555555',
+                            facecolor='none', linestyle='-', zorder=2)
+        ax.add_patch(circle)
+
     # === 扇区角度计算 ===
     dtheta = 2 * np.pi / geo.n_sectors  # 22.5°
     r_ref = r_chip
     theta_in = geo.inlet_slot_width / r_ref
     theta_out = geo.outlet_slot_width / r_ref
 
-    # 偶数扇区=宽出液(红色), 奇数扇区=窄进液(蓝色)
-    # === 底色: 16个扇区 ===
+    # 固体分流壁面宽度 (设计为 1.0 mm)
+    w_wall = 1.0  # mm
+    theta_w = w_wall / r_ref
+
+    # 剩余角度分配给进液和出液歧管本体 (按分流槽缝宽比例分配，使其与壁面完美交替排布)
+    rem_angle = 2 * dtheta - 2 * theta_w
+    theta_in_m = rem_angle * (theta_in / (theta_in + theta_out))
+    theta_out_m = rem_angle * (theta_out / (theta_in + theta_out))
+
+    # === 进液/出液歧管开口与厚壁交替排布 ===
+    # Even: narrow inlet (Blue), Odd: wide outlet (Red)
     for i in range(geo.n_sectors):
         a_center = i * dtheta
-        a_start = a_center - dtheta / 2
-        a_end = a_center + dtheta / 2
-        if i % 2 == 0:
-            fc = '#ffeeee'
-            ec = '#dd8888'
-        else:
-            fc = '#eeeeff'
-            ec = '#8888dd'
-        wedge = Wedge((0, 0), r_max + 2,
-                      np.degrees(a_start), np.degrees(a_end),
-                      facecolor=fc, edgecolor=ec, linewidth=0.5, alpha=0.3, zorder=1)
-        ax.add_patch(wedge)
 
-    # === 13圈环形微通道 (完整圆环) ===
-    for r in geo.ring_radii:
-        circle = plt.Circle((0, 0), r, linewidth=0.6, edgecolor='#888888',
-                            facecolor='none', linestyle='-', zorder=2)
-        ax.add_patch(circle)
-
-    # === 进液/出液扇形歧管缝 (用实心扇区叠加) ===
-    for i in range(geo.n_sectors):
-        a_center = i * dtheta
         if i % 2 == 0:
-            half_w = theta_out / 2
-            fc, ec = '#ff9896', '#d62728'
-        else:
-            half_w = theta_in / 2
+            # 窄进液歧管 (蓝色)
+            half_w = theta_in_m / 2
             fc, ec = '#a1c9f4', '#1f77b4'
+        else:
+            # 宽出液歧管 (红色)
+            half_w = theta_out_m / 2
+            fc, ec = '#ff9896', '#d62728'
 
         a_start = a_center - half_w
         a_end = a_center + half_w
+        
+        # 绘制半透明的歧管开口 (zorder=3)
         wedge = Wedge((0, 0), r_max + 1,
                       np.degrees(a_start), np.degrees(a_end),
-                      facecolor=fc, edgecolor=ec, linewidth=1.5, alpha=0.7, zorder=3)
+                      facecolor=fc, edgecolor=ec, linewidth=1.5, alpha=0.5, zorder=3)
         ax.add_patch(wedge)
 
-        # 流动方向箭头 (只在最外侧可见位置画)
+        # 流动方向箭头 (zorder=5)
         r_arrow = r_max * 0.75
         ax.annotate('',
                     xy=(r_arrow * np.cos(a_center), r_arrow * np.sin(a_center)),
                     xytext=(r_arrow * 0.4 * np.cos(a_center), r_arrow * 0.4 * np.sin(a_center)),
-                    arrowprops=dict(arrowstyle='->', color=ec, lw=1.2), zorder=4)
+                    arrowprops=dict(arrowstyle='->', color=ec, lw=2.0), zorder=5)
+
+        # 绘制不透明的厚壁面 (zorder=4)，用于完全遮挡微通道
+        a_wall_start = a_end
+        if (i + 1) % 2 == 0:
+            next_half_w = theta_in_m / 2
+        else:
+            next_half_w = theta_out_m / 2
+        a_wall_end = (i + 1) * dtheta - next_half_w
+
+        wedge_w = Wedge((0, 0), r_max + 1,
+                        np.degrees(a_wall_start), np.degrees(a_wall_end),
+                        facecolor='#dddddd', edgecolor='#999999', linewidth=1.0, alpha=1.0, zorder=4)
+        ax.add_patch(wedge_w)
+
+    # === 绘制4个角部的出口合并腔 (Merging Chambers) ===
+    # 每个角部对应一个出口 (45°, 135°, 225°, 315°)
+    # 它将该角部两侧的2个出口歧管 (红) 连通，而将该角部正对的入口歧管 (蓝) 阻断
+    r_merge_outer = cp_half * 0.95  # 约 14.25 mm
+    for angle_deg in [45, 135, 225, 315]:
+        a_diag = np.radians(angle_deg)
+        
+        # 两个相邻红歧管的中心角度分别为 a_diag - 22.5° 和 a_diag + 22.5°
+        a_start_c = a_diag - np.radians(22.5) - theta_out_m / 2
+        a_end_c = a_diag + np.radians(22.5) + theta_out_m / 2
+        
+        # 绘制红色的合并腔体 (zorder=3)
+        chamber = Wedge((0, 0), r_merge_outer,
+                        np.degrees(a_start_c), np.degrees(a_end_c),
+                        width=r_merge_outer - r_max,
+                        facecolor='#ff9896', edgecolor='#d62728', linewidth=1.5, alpha=0.5, zorder=3)
+        ax.add_patch(chamber)
+        
+        # 绘制该角部的阻断壁面 (遮挡正对的蓝色进液歧管及其两侧壁面，zorder=4)
+        a_wall_start_c = a_diag - theta_in_m / 2 - theta_w
+        a_wall_end_c = a_diag + theta_in_m / 2 + theta_w
+        block_wall = Wedge((0, 0), r_merge_outer,
+                           np.degrees(a_wall_start_c), np.degrees(a_wall_end_c),
+                           width=r_merge_outer - r_max,
+                           facecolor='#dddddd', edgecolor='#999999', linewidth=1.0, alpha=1.0, zorder=4)
+        ax.add_patch(block_wall)
 
     # === 中心进水口 ===
     inlet = plt.Circle((0, 0), geo.inlet_diameter / 2,
-                       edgecolor='darkblue', facecolor='#a1c9f4', alpha=0.8, zorder=3)
+                       edgecolor='darkblue', facecolor='#a1c9f4', alpha=0.8, zorder=5)
     ax.add_patch(inlet)
     ax.annotate('IN', xy=(0, 0), ha='center', va='center', fontsize=10,
-                color='darkblue', fontweight='bold', zorder=4)
+                color='darkblue', fontweight='bold', zorder=6)
 
     # === 热源区域 (芯片) ===
     chip = plt.Circle((0, 0), r_chip, linewidth=2.5, edgecolor='red',
-                      facecolor='none', linestyle='--', zorder=3)
+                      facecolor='none', linestyle='--', zorder=5)
     ax.add_patch(chip)
 
     # === 4个出口 (冷板四角外侧) ===
@@ -118,14 +156,15 @@ def plot_geometry_topview(geo: ManifoldRingChannelGeometry,
         angle = np.radians(angle_deg)
         x = cp_half * np.cos(angle) * 0.85
         y = cp_half * np.sin(angle) * 0.85
-        outlet = plt.Circle((x, y), 2.5, edgecolor='#8c564b', facecolor='#ff9896', zorder=3)
+        outlet = plt.Circle((x, y), 2.5, edgecolor='#8c564b', facecolor='#ff9896', zorder=5)
         ax.add_patch(outlet)
         ax.annotate('OUT', xy=(x, y), ha='center', va='center', fontsize=7,
-                    color='#8c564b', fontweight='bold', zorder=4)
+                    color='#8c564b', fontweight='bold', zorder=6)
 
     # === 图例与标注 ===
     ax.plot([], [], color='#1f77b4', linewidth=3, label='窄进液歧管 (8根)')
     ax.plot([], [], color='#d62728', linewidth=3, label='宽出液歧管 (8根)')
+    ax.plot([], [], color='#999999', linewidth=2, label='歧管分流壁面')
     ax.plot([], [], color='#555555', linewidth=1, label=f'环形微通道 ({geo.n_rings}圈)')
     ax.plot([], [], color='red', linestyle='--', linewidth=2, label=f'热源区域 Ø{geo.chip_length}mm')
     ax.scatter([], [], color='#ff9896', edgecolors='#8c564b', s=80, label='出口 (4个)')
