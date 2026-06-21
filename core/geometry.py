@@ -102,14 +102,10 @@ class ManifoldRingChannelGeometry:
         n_out = self.n_sectors // 2
         # 扇形歧管角跨度总和
         theta_cut_total = n_in * self.theta_in + n_out * self.theta_out
-        # 各环实际通道弧长 = 2πr - r·θ_cut_total (单条通道)
-        channel_length_per_path = [
+        # 各环实际通道弧长 = 2πr - r·θ_cut_total
+        actual_channel_length = sum(
             max(2 * np.pi * r - r * theta_cut_total, 0.1)
             for r in self.ring_radii
-        ]
-        # 总通道长度 = 各环(单条长度 × 该环通道数)
-        actual_channel_length = sum(
-            L * n for L, n in zip(channel_length_per_path, self.channels_per_ring)
         )
 
         perim_ch = self.channel_width + 2 * self.channel_height  # 3.1 mm
@@ -126,12 +122,8 @@ class ManifoldRingChannelGeometry:
 
         self.total_heat_transfer_area = (A_wet_c + A_wet_m) * 1e-6  # [m²]
 
-        # 孔隙率 (使用总通道体积 / 芯片足迹体积)
-        # 总通道体积 = Σ(各环单条通道长度 × 该环通道数 × 单通道截面积)
-        channel_volume = sum(
-            L * n * self.channel_cross_area
-            for L, n in zip(channel_length_per_path, self.channels_per_ring)
-        )
+        # 孔隙率
+        channel_volume = actual_channel_length * self.channel_cross_area
         chip_footprint = self.chip_area * self.channel_height
         self.porosity = channel_volume / chip_footprint if chip_footprint > 0 else 0.5
 
