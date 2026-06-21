@@ -253,10 +253,13 @@ def plot_geometry_crosssection(geo: ManifoldRingChannelGeometry,
 
 
 def plot_comparison_curves(analysis: ComparativeAnalysis,
+                           sp_flow_gs: float = None,
+                           tp_flow_gs: float = None,
+                           flow_rate_gs: float = 6.0,
                            save_path: str = None) -> plt.Figure:
     """绘制单相 vs 两相对比曲线"""
     qf_range = np.linspace(20, 250, 30)
-    results = analysis.sweep_comparison(qf_range, flow_rate_gs=6.0)
+    results = analysis.sweep_comparison(qf_range, sp_flow_gs=sp_flow_gs, tp_flow_gs=tp_flow_gs, flow_rate_gs=flow_rate_gs)
 
     fig, axes = plt.subplots(2, 3, figsize=(16, 10))
 
@@ -272,10 +275,13 @@ def plot_comparison_curves(analysis: ComparativeAnalysis,
     tp_Tw = [r.tp_T_wall for r in results]
     h_ratio = [r.h_ratio for r in results]
 
+    tp_fluid_name = analysis.tp_sim.fluid.fluid_name
+    tp_label = f"TP-{tp_fluid_name}"
+
     # 1. 换热系数
     ax = axes[0, 0]
     ax.plot(qf_range, sp_h, 'b-o', markersize=3, label='SP-Water')
-    ax.plot(qf_range, tp_h, 'r-s', markersize=3, label='TP-HFE7100')
+    ax.plot(qf_range, tp_h, 'r-s', markersize=3, label=tp_label)
     ax.set_xlabel('Heat flux [W/cm2]')
     ax.set_ylabel('h [W/(cm2.K)]')
     ax.set_title('Heat Transfer Coefficient')
@@ -285,7 +291,7 @@ def plot_comparison_curves(analysis: ComparativeAnalysis,
     # 2. 压降
     ax = axes[0, 1]
     ax.plot(qf_range, sp_dP, 'b-o', markersize=3, label='SP-Water')
-    ax.plot(qf_range, tp_dP, 'r-s', markersize=3, label='TP-HFE7100')
+    ax.plot(qf_range, tp_dP, 'r-s', markersize=3, label=tp_label)
     ax.set_xlabel('Heat flux [W/cm2]')
     ax.set_ylabel('DP [kPa]')
     ax.set_title('Pressure Drop')
@@ -295,7 +301,7 @@ def plot_comparison_curves(analysis: ComparativeAnalysis,
     # 3. 热阻
     ax = axes[0, 2]
     ax.plot(qf_range, sp_Rth, 'b-o', markersize=3, label='SP-Water')
-    ax.plot(qf_range, tp_Rth, 'r-s', markersize=3, label='TP-HFE7100')
+    ax.plot(qf_range, tp_Rth, 'r-s', markersize=3, label=tp_label)
     ax.set_xlabel('Heat flux [W/cm2]')
     ax.set_ylabel('Rth [(cm2.K)/W]')
     ax.set_title('Thermal Resistance')
@@ -305,7 +311,7 @@ def plot_comparison_curves(analysis: ComparativeAnalysis,
     # 4. COP
     ax = axes[1, 0]
     ax.semilogy(qf_range, sp_COP, 'b-o', markersize=3, label='SP-Water')
-    ax.semilogy(qf_range, tp_COP, 'r-s', markersize=3, label='TP-HFE7100')
+    ax.semilogy(qf_range, tp_COP, 'r-s', markersize=3, label=tp_label)
     ax.set_xlabel('Heat flux [W/cm2]')
     ax.set_ylabel('COP')
     ax.set_title('Coefficient of Performance')
@@ -315,7 +321,7 @@ def plot_comparison_curves(analysis: ComparativeAnalysis,
     # 5. 壁面温度
     ax = axes[1, 1]
     ax.plot(qf_range, sp_Tw, 'b-o', markersize=3, label='SP-Water')
-    ax.plot(qf_range, tp_Tw, 'r-s', markersize=3, label='TP-HFE7100')
+    ax.plot(qf_range, tp_Tw, 'r-s', markersize=3, label=tp_label)
     ax.axhline(y=100, color='gray', linestyle='--', alpha=0.5, label='T_max limit')
     ax.set_xlabel('Heat flux [W/cm2]')
     ax.set_ylabel('T_wall [C]')
