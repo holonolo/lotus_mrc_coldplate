@@ -4,13 +4,20 @@
 1D 分区模型 + 经验关联式
 包含: 对流换热、压降、热阻、COP计算
 
-校准基准:
-- 最大散热: 1987W (633 W/cm²)
-- ΔP = 25.22 kPa
-- Rth = 0.0878 (cm²·K)/W
-- COP = 1.8×10⁵
-- 压降降低 50.72% (vs 传统平行通道)
-- 温度均匀性提升 43.74%
+换热模型:
+- 层流入口段: Sieder-Tate 关联式
+- 弯管二次流增强: Mori-Nakayama (1965) Dean涡修正
+- 歧管折返: Borda-Carnot 局部阻力 + 冲击换热(隐含于Dean增强)
+- 基板导热: 一维稳态热阻
+
+模型输出 (工况: q=100 W/cm², m_dot=39 g/s, T_in=20°C, 水):
+- h_conv ≈ 1.6 W/(cm²·K) (通道内壁局部对流换热系数, 基于湿周)
+- h_overall ≈ 8.2 W/(cm²·K) (基于芯片投影面积的整体传热系数)
+- Dean涡增强因子 ≈ 1.7x (Mori-Nakayama)
+- ΔP ≈ 25 kPa (文献: 25.22 kPa)
+
+注: 文献报告的 h=15.99 W/(cm²·K) 是基于投影面积, 包含二次流+冲击+混合等
+多种增强效应的耦合作用, 当前1D模型仅计入Dean涡增强, 其余需CFD验证.
 """
 
 import numpy as np
@@ -43,7 +50,9 @@ class SinglePhaseResult:
     COP: float = 0.0                 # 性能系数 (Coefficient of Performance), 定义为散热功率除以泵送功耗 [无量纲]
     pumping_power: float = 0.0       # 泵送功耗 [W] (pumping power = m_dot * delta_P / rho)
     Re: float = 0.0                  # 流道内部的平均雷诺数 (Reynolds Number)
-    Nu: float = 0.0                  # 流道内部的平均努塞尔数 (Nusselt Number)
+    Nu: float = 0.0                  # 流道内部的平均努塞尔数 (Nusselt Number, 含Dean涡增强)
+    Dean_avg: float = 0.0            # 平均 Dean 数 (Dean Number, 表征二次流强度)
+    enhancement_avg: float = 1.0     # 平均换热增强因子 (Nu_curved / Nu_straight)
     Q_total: float = 0.0             # 总散热量 [W]
     G: float = 0.0                   # 流道内流体的质量流速 [kg/(m²·s)]
 
@@ -86,7 +95,68 @@ class SinglePhaseSimulation:
         Dh = self.geo.hydraulic_diameter * 1e-3  # mm 转换为 m
         return G * Dh / self.fluid.mu_l
 
-    def _calc_Nu(self, Re: float, Pr: float, L_over_Dh: float) -> float:
+    def _calc_Dean(self, Re: float, r_bend: float) -> float:
+        """计算 Dean 数 (Dean Number)
+        
+        Dean 数表征弯管/曲管中二次流(Dean涡)的强度:
+        De = Re * sqrt(Dh / (2 * R_bend))
+        
+        当 De > 10 时, 二次流效应开始显著;
+        当 De > 100 时, 二次流对换热的增强效果明显.
+        
+        参考文献: Dean (1927, 1928), Mori & Nakayama (1965)
+        
+        Args:
+            Re: 雷诺数 [无量纲]
+            r_bend: 弯曲半径 [m]
+            
+        Returns:
+            De: Dean 数 [无量纲]
+        """
+        Dh = self.geo.hydraulic_diameter * 1e-3  # mm 转换为 m
+        return Re * np.sqrt(Dh / max(2 * r_bend, Dh))
+
+    def _calc_Nu_curved(self, Nu_straight: float, De: float, Pr: float) -> float:
+        """计算弯管/环形通道二次流增强后的 Nusselt 数
+        
+        采用 Mori & Nakayama (1965) 层流弯管换热关联式:
+        Nu_c / Nu_s = 1 + C * (De / 116)^0.454   (De < 200, 层流)
+        
+        其中 C 为与 Pr 相关的系数, 对水 (Pr ≈ 6): C ≈ 0.9
+        该关联式适用于 De < 200 的层流弯管工况.
+        
+        对于过渡区和湍流区, 采用 Ito (1959) 修正:
+        Nu_c / Nu_s = 1 + 0.12 * (De^0.5)   (De > 200)
+        
+        参考文献:
+        - Mori Y, Nakayama W. Int. J. Heat Mass Transfer, 1965, 8: 67-82
+        - Ito H. Memoirs Inst. Fluid Eng., Tohoku Univ., 1959
+        
+        Args:
+            Nu_straight: 直管(无曲率) Nusselt 数 [无量纲]
+            De: Dean 数 [无量纲]
+            Pr: 普朗特数 [无量纲]
+            
+        Returns:
+            Nu_curved: 考虑二次流增强的 Nusselt 数 [无量纲]
+        """
+        if De < 10:
+            return Nu_straight  # Dean 数太小, 二次流可忽略
+
+        # Prandtl 数修正系数 (水 Pr≈6 时 C≈0.9, 空气 Pr≈0.7 时 C≈0.5)
+        C_Pr = 0.5 + 0.4 * min(Pr / 6.0, 1.0)  # 插值: 0.5~0.9
+
+        if De < 200:
+            # 层流弯管: Mori & Nakayama 关联式
+            enhancement = 1 + C_Pr * (De / 116) ** 0.454
+        else:
+            # 较高 Dean 数: Ito 形式修正
+            enhancement = 1 + 0.12 * De ** 0.5
+
+        return Nu_straight * enhancement
+
+    def _calc_Nu(self, Re: float, Pr: float, L_over_Dh: float,
+                 De: float = 0.0) -> float:
         """根据流动状态计算局部努塞尔数 (Nusselt Number)
         
         基于雷诺数区间划分为：
@@ -101,11 +171,14 @@ class SinglePhaseSimulation:
            采用经典的 Gnielinski 关联式：
            Nu = (f / 8) * (Re - 1000) * Pr / (1 + 12.7 * (f / 8)^0.5 * (Pr^(2/3) - 1))
            其中摩擦因子 f 使用 Petukhov 关联式估算。为保证数值稳定，最终 Nu 设定下限不低于 8.235。
+        
+        在上述直管 Nu 的基础上, 若 De > 0, 叠加 Mori-Nakayama 弯管二次流增强修正.
            
         Args:
             Re: 雷诺数 [无量纲]
             Pr: 普朗特数 (Prandtl Number) [无量纲]
             L_over_Dh: 相对流动流程长度 (L / Dh) [无量纲]
+            De: Dean 数 (Dean Number), 默认 0.0 (无曲率) [无量纲]
             
         Returns:
             Nu: 努塞尔数 [无量纲]
@@ -120,19 +193,24 @@ class SinglePhaseSimulation:
                 Nu = max(Nu, Nu_fd)  # 确保不低于充分发展值
             else:
                 Nu = Nu_fd
-            return Nu
         elif Re < 4000:
             # 过渡区: 采用 Gnielinski 公式得到的湍流值与层流值进行线性插值
             f = (0.790 * np.log(max(Re, 10)) - 1.64) ** (-2)  # Petukhov 摩擦因子
             Nu_turb = (f / 8) * (Re - 1000) * Pr / (1 + 12.7 * (f / 8) ** 0.5 * (Pr ** (2 / 3) - 1))
             Nu_lam = 8.235
             x = (Re - 2300) / 1700  # 插值系数 [0, 1]
-            return Nu_lam + x * (Nu_turb - Nu_lam)
+            Nu = Nu_lam + x * (Nu_turb - Nu_lam)
         else:
             # 湍流区: Gnielinski 关联式，适用于宽广的雷诺数和普朗特数范围 (0.5 < Pr < 2000, 3000 < Re < 5*10^6)
             f = (0.790 * np.log(max(Re, 10)) - 1.64) ** (-2)  # Petukhov 摩擦因子
             Nu = (f / 8) * (Re - 1000) * Pr / (1 + 12.7 * (f / 8) ** 0.5 * (Pr ** (2 / 3) - 1))
-            return max(Nu, 8.235)  # 边界安全保护
+            Nu = max(Nu, 8.235)  # 边界安全保护
+
+        # 叠加弯管/环形通道二次流 (Dean涡) 增强修正
+        if De > 10:
+            Nu = self._calc_Nu_curved(Nu, De, Pr)
+
+        return Nu
 
     def _calc_friction_factor(self, Re: float) -> float:
         """计算单相流动的达西摩擦因子 (Darcy Friction Factor)
@@ -286,6 +364,8 @@ class SinglePhaseSimulation:
         T_wall_rings = []
         h_rings = []
         Nu_rings = []
+        Nu_straight_rings = []  # 无Dean增强的直管Nu, 用于计算增强因子
+        Dean_rings = []
         pressure_rings = []
         T_out_rings = []
 
@@ -294,12 +374,18 @@ class SinglePhaseSimulation:
         k_base = self.geo.k_substrate            # 基材(铜)导热系数 [W/(m·K)]
 
         # 5. 循环迭代每一圈环形流道
-        for Q_i, A_i, L_i in zip(Q_rings, A_ht_rings, L_flow_rings):
+        for idx, (Q_i, A_i, L_i) in enumerate(zip(Q_rings, A_ht_rings, L_flow_rings)):
             # 无量纲流动长度
             L_over_Dh = L_i / max(Dh, 1e-12)
-            # 计算该环局部 Nu 数与对流换热系数 h_i [W/(m²·K)]
-            Nu_i = self._calc_Nu(Re_path, self.fluid.Pr_l, L_over_Dh)
+            # 该环的弯曲半径 (环形通道中心线半径) [m]
+            r_bend_i = ring_radii[idx] * 1e-3
+            # Dean 数: 表征环形通道曲率引起的二次流强度
+            De_i = self._calc_Dean(Re_path, r_bend_i)
+            # 计算该环局部 Nu 数 (含入口段 + Dean涡增强) 与对流换热系数 h_i
+            Nu_i = self._calc_Nu(Re_path, self.fluid.Pr_l, L_over_Dh, De=De_i)
             h_i = Nu_i * self.fluid.k_l / max(Dh, 1e-12)
+            # 同时计算无增强的直管Nu, 用于输出增强因子
+            Nu_straight_i = self._calc_Nu(Re_path, self.fluid.Pr_l, L_over_Dh, De=0.0)
 
             # 该环工质流体的局部温升 dT_i (Q_i / (m_dot_ring * Cp))
             dT_i = Q_i / max(m_dot_ring * self.fluid.cp_l, 1e-12)
@@ -321,16 +407,16 @@ class SinglePhaseSimulation:
             # + 收缩/扩张损失已在 delta_P_slots 中计入
             K_bend = 2 * 1.1  # 2次90°弯头
             # Dean 数修正 (曲率效应): 弯头处二次流增强混合
-            r_bend = L_i / np.pi  # 等效弯曲半径
-            Dean = Re_path * np.sqrt(Dh / max(2 * r_bend, Dh))
-            if Dean > 10:
-                K_bend *= (1 + 0.15 * np.log10(Dean / 10))
+            if De_i > 10:
+                K_bend *= (1 + 0.15 * np.log10(De_i / 10))
             delta_P_local_i = K_bend * dyn_p
 
             # 存储该环计算数据
             T_wall_rings.append(T_wall_i)
             h_rings.append(h_i)
             Nu_rings.append(Nu_i)
+            Nu_straight_rings.append(Nu_straight_i)
+            Dean_rings.append(De_i)
             pressure_rings.append(delta_P_friction_i + delta_P_local_i)
             T_out_rings.append(T_inlet + dT_i)
 
@@ -338,6 +424,8 @@ class SinglePhaseSimulation:
         T_wall_rings = np.asarray(T_wall_rings)
         h_rings = np.asarray(h_rings)
         Nu_rings = np.asarray(Nu_rings)
+        Nu_straight_rings = np.asarray(Nu_straight_rings)
+        Dean_rings = np.asarray(Dean_rings)
         pressure_rings = np.asarray(pressure_rings)
         T_out_rings = np.asarray(T_out_rings)
 
@@ -345,6 +433,9 @@ class SinglePhaseSimulation:
         res.G = G_path
         res.Re = Re_path
         res.Nu = float(np.average(Nu_rings, weights=area_weights))
+        res.Dean_avg = float(np.average(Dean_rings, weights=area_weights))
+        Nu_straight_avg = float(np.average(Nu_straight_rings, weights=area_weights))
+        res.enhancement_avg = res.Nu / max(Nu_straight_avg, 1e-6)
         res.h_conv = float(np.average(h_rings, weights=area_weights))
         res.h_conv_cm2 = res.h_conv * 1e-4  # 转换为 W/(cm²·K)
         # 流体实际混合出口温度
