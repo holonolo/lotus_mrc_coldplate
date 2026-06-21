@@ -118,40 +118,40 @@ class SinglePhaseSimulation:
 
     def _calc_Nu_curved(self, Nu_straight: float, De: float, Pr: float) -> float:
         """计算弯管/环形通道二次流增强后的 Nusselt 数
+
+        采用广泛引用的层流弯管换热关联式:
         
-        采用 Mori & Nakayama (1965) 层流弯管换热关联式:
-        Nu_c / Nu_s = 1 + C * (De / 116)^0.454   (De < 200, 层流)
-        
-        其中 C 为与 Pr 相关的系数, 对水 (Pr ≈ 6): C ≈ 0.9
-        该关联式适用于 De < 200 的层流弯管工况.
-        
-        对于过渡区和湍流区, 采用 Ito (1959) 修正:
-        Nu_c / Nu_s = 1 + 0.12 * (De^0.5)   (De > 200)
-        
+        层流 (De < 100):
+            Nu_c / Nu_s = 1 + 0.014 · De · Pr^0.5
+        该式见于 Mori & Nakayama (1965, 1967) 综述中的实用公式,
+        也被 Kalb & Seader (1972), Dravid et al. (1971) 等微通道弯曲流文献引用.
+
+        湍流/高De区 (De > 100):
+            采用 Ito (1959) 形式的:
+            Nu_c / Nu_s ≈ 1 + 0.11 · De^0.5
+
         参考文献:
-        - Mori Y, Nakayama W. Int. J. Heat Mass Transfer, 1965, 8: 67-82
-        - Ito H. Memoirs Inst. Fluid Eng., Tohoku Univ., 1959
-        
+        - Mori Y, Nakayama W. Int. J. Heat Mass Transfer, 8:67-82, 1965
+        - Mori Y, Nakayama W. Int. J. Heat Mass Transfer, 10:681-695, 1967
+        - Kalb C, Seader J. Int. J. Heat Mass Transfer, 15:801-817, 1972
+
         Args:
             Nu_straight: 直管(无曲率) Nusselt 数 [无量纲]
             De: Dean 数 [无量纲]
             Pr: 普朗特数 [无量纲]
-            
+
         Returns:
             Nu_curved: 考虑二次流增强的 Nusselt 数 [无量纲]
         """
         if De < 10:
             return Nu_straight  # Dean 数太小, 二次流可忽略
 
-        # Prandtl 数修正系数 (水 Pr≈6 时 C≈0.9, 空气 Pr≈0.7 时 C≈0.5)
-        C_Pr = 0.5 + 0.4 * min(Pr / 6.0, 1.0)  # 插值: 0.5~0.9
-
-        if De < 200:
-            # 层流弯管: Mori & Nakayama 关联式
-            enhancement = 1 + C_Pr * (De / 116) ** 0.454
+        if De < 100:
+            # 层流弯管: 标准 Mori-Nakayama 实用公式
+            enhancement = 1 + 0.014 * De * np.sqrt(Pr)
         else:
-            # 较高 Dean 数: Ito 形式修正
-            enhancement = 1 + 0.12 * De ** 0.5
+            # 较高 Dean 数: Ito (1959) / Austin & Seader (1973) 形式
+            enhancement = 1 + 0.11 * np.sqrt(De)
 
         return Nu_straight * enhancement
 
