@@ -229,7 +229,7 @@ with tab3:
 
 # ===== Tab4: 对比分析 =====
 with tab4:
-    analysis = ComparativeAnalysis(geo)
+    analysis = ComparativeAnalysis(geo, tp_fluid=tp_fluid)
     cp = analysis.compare_at_condition(heat_flux, sp_flow, tp_flow, T_inlet)
 
     # 关键指标对比
@@ -254,7 +254,7 @@ with tab4:
 
     # 对比曲线
     st.subheader("性能对比曲线")
-    fig_cmp = plot_comparison_curves(analysis)
+    fig_cmp = plot_comparison_curves(analysis, sp_flow_gs=sp_flow, tp_flow_gs=tp_flow)
     st.pyplot(fig_cmp)
 
     st.divider()
@@ -263,7 +263,8 @@ with tab4:
     st.subheader("对比分析报告")
     report = analysis.generate_report(
         heat_flux_list=[50, 100, 150, 200, 250],
-        flow_rate_gs=tp_flow,
+        sp_flow_gs=sp_flow,
+        tp_flow_gs=tp_flow,
     )
     st.text(report)
 

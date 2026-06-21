@@ -31,7 +31,7 @@ from core.fluid_properties import FluidProperties
 class FlowPattern(Enum):
     BUBBLY = "泡状流"
     SLUG = "弹状流"
-    CHURN = "搅混流"
+    CHURN = "脉动环状流"
     ANNULAR = "环状流"
     MIST = "雾状流"
     DRYOUT = "干涸"
@@ -265,33 +265,57 @@ class TwoPhaseSimulation:
         f_lo = self._calc_friction_factor(Re_lo)
         dp_lo = f_lo * (L_ch / Dh) * (G ** 2 / (2 * rho_l))
 
-        # Lockhart-Martinelli 两相乘子
+        # Lockhart-Martinelli 两相乘子 (微通道内 C=25.0)
         X_tt = ((1 - x_avg) / x_avg) ** 0.9 * (rho_v / rho_l) ** 0.5 * (mu_l / mu_v) ** 0.1
-        C = 20.0
+        C = 25.0
         phi_lo2 = 1 + C / max(X_tt, 0.01) + 1.0 / max(X_tt ** 2, 1e-6)
         dp_fric = dp_lo * phi_lo2
 
         # 加速度压降
-        void_out = self._calc_void_fraction(x_out, G) if x_out > 0 else 0
-        void_in = self._calc_void_fraction(x_in, G) if x_in > 0 else 0
+        def calc_void(x):
+            if x <= 0: return 0.0
+            dec = 1 + ((1 - x) / x) * (rho_v / rho_l) ** (2/3)
+            return 1.0 / dec
+        void_out = calc_void(x_out)
         rho_eff_out = rho_v * void_out + rho_l * (1 - void_out)
-        rho_eff_in = rho_v * void_in + rho_l * (1 - void_in)
-        dp_accel = G ** 2 * abs(1 / max(rho_eff_out, 1e-3) - 1 / max(rho_eff_in, 1e-3))
-        dp_accel = max(dp_accel, 0)
+        dp_accel = G ** 2 * abs(1 / max(rho_eff_out, 1e-3) - 1 / rho_l)
 
-        # 歧管局部损失 (Borda-Carnot 收缩/扩张 + 折返弯头)
-        A_inlet = np.pi * (self.geo.inlet_diameter * 1e-3) ** 2 / 4
+        # 歧管层与进/出口缝隙局部阻力计算 (与单相水冷物理架构对齐)
         A_ch_total = self.geo.effective_cross_area
-        sigma_in = min(A_ch_total / max(A_inlet, 1e-12), 1.0)   # 收缩比
-        sigma_out = min(A_inlet / max(A_ch_total, 1e-12), 1.0)  # 扩张比
+        m_dot = G * A_ch_total
 
-        # 突缩损失 K_cont = 0.5*(1-sigma), 突扩损失 K_exp = (1-sigma)^2
-        K_cont = 0.5 * (1 - sigma_in)
-        K_exp = (1 - sigma_out) ** 2
-        # 折返弯头 (每条路径2次90°弯头)
-        K_bend = 2 * 1.1  # 2 × K_90°bend ≈ 1.1
+        # 1. 中心入口管道阻力
+        A_inlet = np.pi * (self.geo.inlet_diameter * 1e-3) ** 2 / 4
+        # 2. 缝隙流道数量 (默认有一半的扇区作为进水通道)
+        n_inlet_slots = max(self.geo.n_sectors // 2, 1)
+        A_inlet_slots = n_inlet_slots * self.geo.inlet_slot_width * self.geo.manifold_height * 1e-6
+        A_outlet_slots = n_inlet_slots * self.geo.outlet_slot_width * self.geo.manifold_height * 1e-6
 
-        dp_manifold = (K_cont + K_exp + K_bend) * (G ** 2 / (2 * rho_l))
+        # 各流道部分质量流速
+        G_inlet = m_dot / max(A_inlet, 1e-12)
+        G_inlet_slots = m_dot / max(A_inlet_slots, 1e-12)
+        G_outlet_slots = m_dot / max(A_outlet_slots, 1e-12)
+
+        # 收缩/扩张截面比
+        sigma_inlet = min(A_inlet_slots / max(A_inlet, 1e-12), 1.0)
+        K_inlet = 0.5 * (1 - sigma_inlet) + 1.1 + 0.5
+        
+        sigma_slot_in = min(A_ch_total / max(A_inlet_slots, 1e-12), 1.0)
+        K_slot_in = 0.5 * (1 - sigma_slot_in) + 1.1
+
+        sigma_slot_out = min(A_outlet_slots / max(A_ch_total, 1e-12), 1.0)
+        K_slot_out = (1 - sigma_slot_out) ** 2 + 1.1
+
+        # 各部分局部压降计算 (出口处使用两相乘子 phi_tp_out 校准)
+        dp_inlet = K_inlet * G_inlet ** 2 / (2 * rho_l)
+        dp_slot_in = K_slot_in * G_inlet_slots ** 2 / (2 * rho_l)
+
+        # 出口缝隙处引入两相修正乘子 (两相校准系数 C_tp = 3.5)
+        C_tp = 3.5
+        phi_tp_out = 1.0 + C_tp * x_out * (rho_l / rho_v - 1.0)
+        dp_slot_out = phi_tp_out * (K_slot_out * G_outlet_slots ** 2 / (2 * rho_l))
+
+        dp_manifold = dp_inlet + dp_slot_in + dp_slot_out
 
         dp_grav = 0.0
         dp_total = dp_fric + dp_accel + dp_grav + dp_manifold
