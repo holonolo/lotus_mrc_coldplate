@@ -2,19 +2,17 @@
 仿荷叶歧管微通道冷板 - 两相沸腾冷却仿真模型 (第一性原理版)
 =============================================
 
-基于物理机理建模，不依赖全局标定:
+基于物理机理建模，无人为修正因子:
 
 1. 换热: Gungor-Winterton (1987) 两相关联式
-2. 增强因子: 几何驱动 (长径比、扩张角) -> 以壁温修正形式体现
-3. 能量守恒: 沿程积分 (考虑压降引起的饱和温度变化)
-4. 流型: 无量纲数判定 (Co, We, Fr)
-5. CHF: Kutateladze-Zuber 空泡脱离准则 + 尺寸效应
-6. 压降: Lockhart-Martinelli + 加速度压降
+2. 压降: Lockhart-Martinelli + 加速度压降
+3. 流型: 无量纲数判定 (Co, We, Fr)
+4. CHF: Zuber池沸腾 + Katto流动沸腾 + 短通道修正
 
 参考:
 - Gungor KE, Winterton RHS, 1987, "A general correlation for flow boiling in tubes"
-- Kutateladze SS, 1951, "A hydrodynamic theory of boiling burnout"
-- Qu W, Mudawar I, 2004, "Transport phenomena data book"
+- Zuber N, 1958, "On the stability of boiling heat transfer"
+- Katto Y, 1994, "Critical heat flux of flow boiling in uniformly heated vertical tubes"
 """
 
 import sys
@@ -73,8 +71,6 @@ class TwoPhaseResult:
     Re_lo: float = 0.0
     Bo_local: float = 0.0
     Co_local: float = 0.0
-    eta_geometry: float = 1.0
-    eta_flow: float = 1.0
 
 
 class TwoPhaseSimulation:
@@ -85,53 +81,6 @@ class TwoPhaseSimulation:
                  fluid: FluidProperties = None):
         self.geo = geometry or ManifoldRingChannelGeometry()
         self.fluid = fluid or FluidProperties("HFE7100")
-
-    def _calc_geometric_enhancement(self, G: float, x: float) -> Tuple[float, float]:
-        """几何增强因子 (收缩/扩张 + 扇形分流)"""
-        Dh = self.geo.hydraulic_diameter * 1e-3
-        L_ch = self.geo.L_flow_avg * 1e-3
-        rho_l = self.fluid.rho_l
-        rho_v = self.fluid.rho_v
-
-        A_inlet = np.pi * (self.geo.inlet_diameter * 1e-3)**2 / 4
-        A_single_ch = self.geo.channel_cross_area * 1e-6
-        area_ratio_in = A_inlet / (A_single_ch * self.geo.effective_channels)
-        area_ratio_out = 1.0 / area_ratio_in
-
-        theta_in = np.arctan2(abs(np.log(area_ratio_in)) * Dh, L_ch / 2)
-        theta_out = np.arctan2(abs(np.log(area_ratio_out)) * Dh, L_ch / 2)
-
-        K_cont = 0.5 * (1 - area_ratio_in)
-        K_exp = (1 - area_ratio_out)**2 / 2
-
-        Re_D = G * Dh / self.fluid.mu_l
-        if Re_D < 1000:
-            eta_sep_in = 1.0 + 0.3 * K_cont
-            eta_sep_out = 1.0 + 0.3 * K_exp
-        else:
-            eta_sep_in = 1.0 + 0.8 * K_cont * np.tanh(theta_in * 5)
-            eta_sep_out = 1.0 + 0.8 * K_exp * np.tanh(theta_out * 5)
-
-        eta_geometry = np.sqrt(eta_sep_in * eta_sep_out)
-
-        r_ref = self.geo.chip_length / 2 * 1e-3
-        Dean_in = Re_D * (Dh / (2 * r_ref))**0.5
-        if Dean_in > 10:
-            eta_sector = 1.0 + 0.15 * np.log10(Dean_in / 10)
-            eta_geometry *= eta_sector
-
-        eta_flow = 1.0
-        void_frac = self._calc_void_fraction(x, G)
-        if void_frac > 0.7 and G > 200:
-            eta_flow = 1.25
-            self._last_flow_pattern = FlowPattern.PULSATING_ANNULAR
-        elif void_frac > 0.8:
-            eta_flow = 0.9
-            self._last_flow_pattern = FlowPattern.DRYOUT
-        else:
-            self._last_flow_pattern = FlowPattern.ANNULAR if void_frac > 0.4 else FlowPattern.SLUG
-
-        return eta_geometry, eta_flow
 
     def _calc_void_fraction(self, x: float, G: float) -> float:
         if x <= 0:
@@ -182,8 +131,7 @@ class TwoPhaseSimulation:
         rho_m = 1 / (x / self.fluid.rho_v + (1 - x) / self.fluid.rho_l)
         return G**2 / (rho_m * 9.81 * Dh)
 
-    def _calc_h_two_phase(self, G: float, x: float, q_Wcm2: float,
-                          eta_geo: float, eta_flow: float) -> float:
+    def _calc_h_two_phase(self, G: float, x: float, q_Wcm2: float) -> float:
         """Gungor-Winterton (1987) 两相关联式
 
         h_tp = E * h_l + S * h_pool
@@ -405,10 +353,6 @@ class TwoPhaseSimulation:
         res.T_sat = T_sat_local
         res.T_sat_local = T_sat_local
 
-        eta_geo, eta_flow = self._calc_geometric_enhancement(G, res.x_avg)
-        res.eta_geometry = eta_geo
-        res.eta_flow = eta_flow
-
         Bo_local = (heat_flux_Wcm2 * 1e4) / (G * self.fluid.h_fg)
         Co_local = self._calc_Convection_number(res.x_avg)
         We_local = self._calc_Weber_number(G, res.x_avg)
@@ -422,7 +366,7 @@ class TwoPhaseSimulation:
         res.flow_pattern_name = fp.value
         res.void_fraction = self._calc_void_fraction(res.x_avg, G)
 
-        h_tp_wet = self._calc_h_two_phase(G, res.x_avg, heat_flux_Wcm2, eta_geo, eta_flow)
+        h_tp_wet = self._calc_h_two_phase(G, res.x_avg, heat_flux_Wcm2)
         A_wet = self.geo.total_heat_transfer_area  # m² (wetted)
         A_chip_m2 = self.geo.chip_area * 1e-6      # m² (projected)
         area_ratio = A_wet / A_chip_m2 if A_chip_m2 > 0 else 1.0
