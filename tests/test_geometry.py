@@ -12,9 +12,11 @@
     inlet_diameter=4.5 mm, ring_spacing=0.6 mm
 """
 
+import math
+
 import pytest
 
-from core.geometry import ManifoldRingChannelGeometry
+from core.geometry import ManifoldRingChannelGeometry, ChannelShape
 
 
 class TestDerivedGeometryExact:
@@ -125,3 +127,118 @@ class TestDictAndSummary:
         assert isinstance(s, str)
         assert "水力直径" in s
         assert "13" in s  # n_rings
+
+
+class TestCrossSectionShapes:
+    """非圆截面形状扩展测试 (ChannelShape: RECTANGULAR/CIRCULAR/TRAPEZOIDAL/TRIANGULAR)
+
+    用数学关系 (Dh=4A/P, 各形状 A/P 公式) 验证, 不硬编码手算数值, 跨平台稳健。
+    """
+
+    def test_rectangular_is_default(self):
+        geo = ManifoldRingChannelGeometry()
+        assert geo.channel_shape == ChannelShape.RECTANGULAR
+
+    def test_rectangular_backward_compatible(self):
+        """默认矩形与原公式完全一致 (向后兼容)"""
+        geo = ManifoldRingChannelGeometry()
+        w, h = 0.3, 1.4
+        assert geo.channel_cross_area == pytest.approx(w * h)
+        assert geo.hydraulic_diameter == pytest.approx(2 * w * h / (w + h))
+        assert geo.aspect_ratio == pytest.approx(min(w / h, h / w))
+
+    def test_hydraulic_diameter_is_4A_over_P_for_all_shapes(self):
+        """所有形状 Dh 严格满足 Dh = 4A/P 定义"""
+        configs = [
+            dict(channel_shape=ChannelShape.RECTANGULAR),
+            dict(channel_shape=ChannelShape.CIRCULAR, channel_diameter=0.3),
+            dict(channel_shape=ChannelShape.TRAPEZOIDAL,
+                 channel_width=0.6, channel_height=0.3),
+            dict(channel_shape=ChannelShape.TRIANGULAR,
+                 channel_width=0.3, channel_height=0.3),
+        ]
+        for cfg in configs:
+            geo = ManifoldRingChannelGeometry(**cfg)
+            assert geo.hydraulic_diameter == pytest.approx(
+                4 * geo.channel_cross_area / geo._wetted_perimeter)
+
+    def test_circular_dh_equals_diameter(self):
+        D = 0.3
+        geo = ManifoldRingChannelGeometry(
+            channel_shape=ChannelShape.CIRCULAR, channel_diameter=D)
+        assert geo.channel_cross_area == pytest.approx(math.pi * D ** 2 / 4)
+        assert geo._wetted_perimeter == pytest.approx(math.pi * D)
+        assert geo.hydraulic_diameter == pytest.approx(D)  # 圆 Dh = D
+        assert geo.aspect_ratio == 1.0
+
+    def test_trapezoidal_geometry_relations(self):
+        w, h, theta_deg = 0.6, 0.3, 54.7
+        geo = ManifoldRingChannelGeometry(
+            channel_shape=ChannelShape.TRAPEZOIDAL,
+            channel_width=w, channel_height=h,
+            trapezoid_side_angle=theta_deg)
+        theta = math.radians(theta_deg)
+        w_top = w - 2 * h / math.tan(theta)
+        slant = h / math.sin(theta)
+        assert w_top > 0  # 合理尺寸: 顶宽为正
+        assert geo.channel_cross_area == pytest.approx((w + w_top) / 2 * h)
+        assert geo._wetted_perimeter == pytest.approx(w + w_top + 2 * slant)
+        assert geo.aspect_ratio == pytest.approx(min(w / h, h / w))
+
+    def test_triangular_geometry_relations(self):
+        w, h = 0.3, 0.3
+        geo = ManifoldRingChannelGeometry(
+            channel_shape=ChannelShape.TRIANGULAR,
+            channel_width=w, channel_height=h)
+        slant = math.sqrt((w / 2) ** 2 + h ** 2)
+        assert geo.channel_cross_area == pytest.approx(w * h / 2)
+        assert geo._wetted_perimeter == pytest.approx(w + 2 * slant)
+        assert geo.aspect_ratio == pytest.approx(min(w / h, h / w))
+
+    def test_all_shapes_valid_derived_quantities(self):
+        """所有形状派生量物理合理"""
+        configs = [
+            dict(channel_shape=ChannelShape.RECTANGULAR),
+            dict(channel_shape=ChannelShape.CIRCULAR, channel_diameter=0.3),
+            dict(channel_shape=ChannelShape.TRAPEZOIDAL,
+                 channel_width=0.6, channel_height=0.3),
+            dict(channel_shape=ChannelShape.TRIANGULAR,
+                 channel_width=0.3, channel_height=0.3),
+        ]
+        for cfg in configs:
+            geo = ManifoldRingChannelGeometry(**cfg)
+            assert geo.channel_cross_area > 0
+            assert geo.hydraulic_diameter > 0
+            assert geo.effective_cross_area > 0
+            assert geo.total_heat_transfer_area > 0
+            assert 0 < geo.aspect_ratio <= 1.0
+
+    def test_shape_change_alters_hydraulic_diameter(self):
+        """切换截面形状后水力直径改变 (形状分支生效)"""
+        geo_rect = ManifoldRingChannelGeometry()
+        geo_circ = ManifoldRingChannelGeometry(
+            channel_shape=ChannelShape.CIRCULAR, channel_diameter=0.3)
+        assert geo_rect.hydraulic_diameter != geo_circ.hydraulic_diameter
+
+    def test_two_phase_runs_on_circular(self):
+        """非矩形截面下两相仿真正常 (Dh-based 关联式自动适配)"""
+        from core.two_phase import TwoPhaseSimulation
+        from core.fluid_properties import FluidProperties
+        geo = ManifoldRingChannelGeometry(
+            channel_shape=ChannelShape.CIRCULAR, channel_diameter=0.3)
+        res = TwoPhaseSimulation(geo, FluidProperties("HFE7100")).simulate(255, 6.0, 20.0)
+        assert res.h_conv_cm2 > 0
+        assert res.CHF > 0
+        assert res.T_wall_avg > res.T_sat
+
+    def test_single_phase_runs_on_trapezoidal(self):
+        """非矩形截面下单相仿真正常"""
+        from core.single_phase import SinglePhaseSimulation
+        from core.fluid_properties import FluidProperties
+        geo = ManifoldRingChannelGeometry(
+            channel_shape=ChannelShape.TRAPEZOIDAL,
+            channel_width=0.6, channel_height=0.3)
+        res = SinglePhaseSimulation(geo, FluidProperties("water")).simulate(100, 39.0, 20.0)
+        assert res.h_conv_cm2 > 0
+        assert res.pressure_drop > 0
+        assert res.Re > 0
