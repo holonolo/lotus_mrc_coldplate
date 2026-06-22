@@ -232,8 +232,7 @@ class SinglePhaseSimulation:
         """
         if Re < 2300:
             # 矩形截面修正，取通道宽与高之比的倒数，使得纵横比 alpha <= 1.0
-            alpha = self.geo.channel_width / self.geo.channel_height
-            alpha = min(alpha, 1.0 / alpha) if alpha > 0 else 0.5
+            alpha = self.geo.aspect_ratio  # 截面纵横比 (各形状定义, <=1.0)
             # Shah & London 矩形通道层流阻力多项式系数拟合
             f_lam = 24 * (1 - 1.3553 * alpha + 1.9467 * alpha ** 2
                           - 1.7012 * alpha ** 3 + 0.9564 * alpha ** 4

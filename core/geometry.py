@@ -13,7 +13,22 @@
 
 import numpy as np
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Optional
+
+
+class ChannelShape(Enum):
+    """微通道截面形状
+
+    RECTANGULAR : 矩形 (默认, 文献基准)
+    CIRCULAR    : 圆形
+    TRAPEZOIDAL : 梯形 (硅基各向异性蚀刻, 侧壁角默认 54.7°)
+    TRIANGULAR  : 等腰三角形
+    """
+    RECTANGULAR = "rectangular"
+    CIRCULAR = "circular"
+    TRAPEZOIDAL = "trapezoidal"
+    TRIANGULAR = "triangular"
 
 
 @dataclass
@@ -36,8 +51,11 @@ class ManifoldRingChannelGeometry:
     n_sectors: int = 16                # 总分流径向流道数 (8窄进液 + 8宽出液)
 
     # ===== 微通道层 =====
-    channel_height: float = 1.4       # 微通道深度 [mm] (文献基准 1.4mm)
-    channel_width: float = 0.3        # 微通道宽度 [mm] (文献基准 0.3mm)
+    channel_shape: ChannelShape = ChannelShape.RECTANGULAR  # 截面形状
+    channel_height: float = 1.4       # 微通道深度/高 [mm] (文献基准 1.4mm)
+    channel_width: float = 0.3        # 微通道宽度/底宽 [mm] (文献基准 0.3mm)
+    channel_diameter: float = 0.3     # 圆形截面直径 [mm] (仅 CIRCULAR)
+    trapezoid_side_angle: float = 54.7  # 梯形侧壁角 [deg] (硅各向异性蚀刻, 仅 TRAPEZOIDAL)
     fin_width: float = 0.3            # 翅片厚度 [mm] (文献基准 0.3mm)
     base_thickness: float = 0.5       # 基板厚度 [mm] (文献基准 0.5mm)
 
@@ -59,11 +77,8 @@ class ManifoldRingChannelGeometry:
 
     def _compute_derived(self):
         """计算派生几何参数"""
-        # 水力直径
-        self.hydraulic_diameter = (2 * self.channel_width * self.channel_height /
-                                   (self.channel_width + self.channel_height))
-        # 单通道截面积
-        self.channel_cross_area = self.channel_width * self.channel_height  # [mm²]
+        # 截面几何 (截面积/湿周/水力直径/纵横比), 按 channel_shape 分支
+        self._compute_cross_section()
 
         # 环半径计算
         self.ring_radii = []
@@ -108,7 +123,7 @@ class ManifoldRingChannelGeometry:
             for r in self.ring_radii
         )
 
-        perim_ch = self.channel_width + 2 * self.channel_height  # 3.1 mm
+        perim_ch = self._heat_transfer_perimeter  # 换热周长 [mm] (不含对歧管顶面)
         A_wet_c = perim_ch * actual_channel_length
 
         r_inner = self.inlet_diameter / 2
@@ -133,6 +148,58 @@ class ManifoldRingChannelGeometry:
         # 铜基材料属性
         self.k_substrate = 401.0     # 铜[W/(m·K)]
         self.k_sinter = 254.0        # 银烧结[W/(m·K)] (文献基准 254 W/mK)
+
+    def _compute_cross_section(self):
+        """根据 channel_shape 计算截面几何 (截面积/湿周/水力直径/纵横比)
+
+        水力直径统一定义为 Dh = 4A/P。对矩形, 4A/P = 4wh/[2(w+h)] = 2wh/(w+h),
+        与原公式完全等价 —— 默认 RECTANGULAR 时所有派生量保持向后兼容。
+
+        各形状的换热周长 (_heat_transfer_perimeter) 不含对歧管的顶面边:
+        - 矩形: w + 2h          (湿周 2(w+h) 减去顶边 w)
+        - 梯形: w + 2·slant      (不含顶宽 w_top)
+        - 三角形: 2·slant        (不含底边)
+        - 圆形: 全湿周 πD        (无显式顶面)
+        """
+        w, h = self.channel_width, self.channel_height
+        shape = self.channel_shape
+
+        if shape == ChannelShape.RECTANGULAR:
+            self.channel_cross_area = w * h                                  # [mm²]
+            self._wetted_perimeter = 2 * (w + h)                             # [mm]
+            self.aspect_ratio = min(w / h, h / w) if w > 0 and h > 0 else 1.0
+            self._heat_transfer_perimeter = w + 2 * h                        # [mm]
+
+        elif shape == ChannelShape.CIRCULAR:
+            D = self.channel_diameter
+            self.channel_cross_area = np.pi * D ** 2 / 4                     # [mm²]
+            self._wetted_perimeter = np.pi * D                               # [mm]
+            self.aspect_ratio = 1.0
+            self._heat_transfer_perimeter = self._wetted_perimeter           # [mm]
+
+        elif shape == ChannelShape.TRAPEZOIDAL:
+            # 各向异性蚀刻: 顶宽 = 底宽 - 2h/tan(theta)
+            theta = np.radians(self.trapezoid_side_angle)
+            w_top = max(w - 2 * h / np.tan(theta), 0.1 * w)                  # 顶宽, 防负
+            self.trapezoid_top_width = w_top
+            slant = h / np.sin(theta)
+            self.channel_cross_area = (w + w_top) / 2 * h                    # [mm²]
+            self._wetted_perimeter = w + w_top + 2 * slant                   # [mm]
+            self.aspect_ratio = min(w / h, h / w) if w > 0 and h > 0 else 1.0
+            self._heat_transfer_perimeter = w + 2 * slant                    # [mm]
+
+        elif shape == ChannelShape.TRIANGULAR:
+            slant = np.sqrt((w / 2) ** 2 + h ** 2)
+            self.channel_cross_area = w * h / 2                              # [mm²]
+            self._wetted_perimeter = w + 2 * slant                           # [mm]
+            self.aspect_ratio = min(w / h, h / w) if w > 0 and h > 0 else 1.0
+            self._heat_transfer_perimeter = 2 * slant                        # [mm]
+
+        else:
+            raise ValueError(f"未知截面形状: {shape}")
+
+        # 统一水力直径 Dh = 4A/P
+        self.hydraulic_diameter = 4 * self.channel_cross_area / self._wetted_perimeter  # [mm]
 
     def get_params_dict(self) -> dict:
         """返回所有参数字典"""
