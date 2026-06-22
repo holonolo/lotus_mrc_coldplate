@@ -1,5 +1,32 @@
+# Python 字节码
 __pycache__/
 *.pyc
 *.pyo
+*.pyd
+
+# 系统
 .DS_Store
+Thumbs.db
+
+# 虚拟环境
+.venv/
+venv/
+env/
+
+# 测试 / 覆盖率 / 打包
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+*.egg-info/
+build/
+dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 文档构建
 docs/

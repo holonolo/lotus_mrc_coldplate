@@ -1,0 +1,8 @@
+[tool.pytest.ini_options]
+# 仅从 tests/ 收集测试用例 (避免根目录 test_new_model.py 等验证脚本被误收集)
+testpaths = ["tests"]
+# 将项目根加入 sys.path, 使测试可直接 `from core import ...`
+pythonpath = ["."]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
