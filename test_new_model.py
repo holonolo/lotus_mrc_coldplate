@@ -1,8 +1,9 @@
 """
 测试新两相模型
 """
+import os
 import sys
-sys.path.insert(0, r'd:\Python\lotus_mrc_coldplate')
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from core.geometry import ManifoldRingChannelGeometry
 from core.fluid_properties import FluidProperties

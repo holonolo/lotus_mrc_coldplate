@@ -13,7 +13,7 @@
 
 ### 新增 (Added)
 - 新增 [test_new_model.py](test_new_model.py) 新模型验证测试脚本。
-- 新增 [core/two_phase_v2.py](core/two_phase_v2.py) 修正实验版（增强因子以壁温修正形式独立处理）。
+- 新增 `core/two_phase_v2.py` 修正实验版（增强因子以壁温修正形式独立处理；该过渡文件已于后期项目整理中删除）。
 
 ### 优化 (Improved)
 - 换热面积基准修正：h 输出同时提供基于**投影面积**和**湿面积**两个基准的值，明确物理定义。
@@ -22,7 +22,7 @@
 
 ### 修复 (Fixed)
 - 修复 h_proj 公式方向错误（原为 h_proj = h_wet / area_ratio，修正为 h_proj = h_wet × area_ratio），使其符合 Q = h_wet × A_wet × ΔT = h_proj × A_proj × ΔT 的物理守恒关系。
-- 确认 two_phase_v2.py 中 Reynold 数 Re_D 的计算使用 mu_l（动力粘度）而非 rho_l（密度）。
+- 确认实验过渡版 `two_phase_v2.py` 中 Reynold 数 Re_D 的计算使用 mu_l（动力粘度）而非 rho_l（密度）。
 
 ### 验证 (Validation)
 - 在文献基准工况（q=255 W/cm², m=6 g/s, HFE-7100）下完成对标：

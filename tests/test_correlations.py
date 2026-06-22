@@ -35,7 +35,7 @@ def run_comparison():
     print("=" * 90)
     print(f"冷板: Dh={geo.hydraulic_diameter:.3f} mm, {geo.n_rings}环×{geo.n_sectors}扇区")
     print(f"工质: HFE-7100, T_sat={fluid.T_sat}°C")
-    print(f"文献基准: h=2.13 W/(cm²·K) @ q=255 W/cm², m=6 g/s")
+    print(f"文献基准: h=2.13 W/(cm^2.K) @ q=255 W/cm^2, m=6 g/s")
     print()
 
     # 固定流量, 扫描热流密度
@@ -43,9 +43,9 @@ def run_comparison():
     m_dot = m_gs * 1e-3
     G = m_dot / A_eff
 
-    print(f"质量流量 = {m_gs} g/s, G = {G:.1f} kg/(m²·s)")
+    print(f"质量流量 = {m_gs} g/s, G = {G:.1f} kg/(m^2.s)")
     print("-" * 90)
-    header = (f"{'q [W/cm²]':>10} | {'x_out':>6} | "
+    header = (f"{'q [W/cm^2]':>10} | {'x_out':>6} | "
               f"{'G-W h':>10} | {'KM h':>10} | {'G-W/文献':>8} | {'KM/文献':>8} | "
               f"{'G-W E':>6} | {'G-W S':>6} | {'KM NBD':>10} | {'KM CBD':>10}")
     print(header)
@@ -97,8 +97,8 @@ def run_comparison():
 
     print("-" * 90)
     print("\n说明:")
-    print("  G-W h   = Gungor-Winterton 预测换热系数 [W/(cm²·K)]")
-    print("  KM h    = Kim-Mudawar 预测换热系数 [W/(cm²·K)]")
+    print("  G-W h   = Gungor-Winterton 预测换热系数 [W/(cm^2.K)]")
+    print("  KM h    = Kim-Mudawar 预测换热系数 [W/(cm^2.K)]")
     print("  G-W/文献 = G-W 预测值 / 文献基准值(2.13)")
     print("  KM/文献  = KM 预测值 / 文献基准值(2.13)")
     print("  G-W E/S = G-W 增强因子/抑制因子")
@@ -107,7 +107,7 @@ def run_comparison():
 
     # 不同流量对比
     print("=" * 70)
-    print("不同流量下的对比 (q=255 W/cm²)")
+    print("不同流量下的对比 (q=255 W/cm^2)")
     print("=" * 70)
     print(f"{'m [g/s]':>8} | {'G':>8} | {'x_out':>6} | {'G-W h':>10} | {'KM h':>10} | {'差值%':>8}")
     print("-" * 70)

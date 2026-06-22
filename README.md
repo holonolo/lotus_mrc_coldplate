@@ -87,8 +87,14 @@ lotus_mrc_coldplate/
 │   ├── single_phase.py           # 单相水冷分区计算模型
 │   ├── two_phase.py              # 两相沸腾计算模型（Gungor-Winterton 第一性原理版）
 │   ├── comparison.py             # 单/两相数据对比及报告生成
-│   └── visualization.py          # 图形绘制与可视化功能
+│   ├── visualization.py          # 图形绘制与可视化功能
+│   └── correlations/             # 两相沸腾换热关联式库
+│       ├── __init__.py
+│       ├── gungor_winterton.py   # Gungor-Winterton (1987) 关联式
+│       └── kim_mudawar.py        # Kim-Mudawar (2013) 关联式
 ├── results/                      # 命令行模式保存的图表输出目录
+├── tests/                        # 单元测试模块
+│   └── test_correlations.py      # 换热关联式单元测试
 ├── gui_app.py                    # Streamlit GUI 交互应用主入口
 ├── main.py                       # CLI 命令行仿真主入口
 ├── test_new_model.py             # 新模型验证测试脚本

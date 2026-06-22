@@ -53,6 +53,8 @@ class TwoPhaseResult:
     T_wall_max: float = 0.0
     T_wall_avg: float = 0.0
     T_sat_local: float = 0.0
+    T_sat: float = 0.0
+    eta_geometry: float = 1.0
     h_conv: float = 0.0
     h_conv_cm2: float = 0.0
     pressure_drop: float = 0.0
@@ -376,6 +378,7 @@ class TwoPhaseSimulation:
         res.x_inlet = 0.0
         res.T_sat = T_sat_local
         res.T_sat_local = T_sat_local
+        res.eta_geometry = 1.0
 
         Bo_local = (heat_flux_Wcm2 * 1e4) / (G * self.fluid.h_fg)
         Co_local = self._calc_Convection_number(res.x_avg)
