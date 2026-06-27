@@ -30,7 +30,7 @@ importlib.reload(core.comparison)
 importlib.reload(core.visualization)
 
 import streamlit as st
-from core.geometry import ManifoldRingChannelGeometry
+from core.geometry import ManifoldRingChannelGeometry, ChannelShape
 from core.fluid_properties import FluidProperties
 from core.single_phase import SinglePhaseSimulation
 from core.two_phase import TwoPhaseSimulation, FlowPattern
@@ -61,22 +61,45 @@ with st.sidebar:
 
     # --- 几何参数 ---
     st.subheader("冷板几何")
-    chip_area = st.number_input("圆形热源面积 [mm²]", value=314.16, min_value=50.0, max_value=1000.0)
-    chip_length = st.number_input("圆形热源直径 [mm]", value=20.0, min_value=5.0, max_value=50.0)
+    coldplate_diameter = st.number_input("冷板直径 [mm]", value=30.0, min_value=0.0, max_value=500.0)
+    chip_area = st.number_input("圆形热源面积 [mm²]", value=314.16, min_value=50.0, max_value=10000.0)
+    chip_length = st.number_input("圆形热源直径 [mm]", value=20.0, min_value=5.0, max_value=100.0)
     channel_width = st.number_input("微通道宽度 [mm]", value=0.30, min_value=0.05, max_value=1.0, step=0.01, format="%.3f")
-    channel_height = st.number_input("微通道深度 [mm]", value=1.4, min_value=0.1, max_value=2.0, step=0.1)
-    fin_width = st.number_input("翅片厚度 [mm]", value=0.30, min_value=0.05, max_value=1.0, step=0.01, format="%.3f")
-    manifold_height = st.number_input("歧管层高度 [mm]", value=1.8, min_value=0.2, max_value=3.0, step=0.1)
-    n_rings = st.number_input("环形微通道数", value=13, min_value=2, max_value=20)
-    n_sectors = st.number_input("总歧管分流流道数", value=16, min_value=4, max_value=32, step=2)
+    channel_height = st.number_input("微通道深度 [mm]", value=1.4, min_value=0.1, max_value=10.0, step=0.1)
+    fin_width = st.number_input("翅片厚度 [mm]", value=0.30, min_value=0.05, max_value=5.0, step=0.01, format="%.3f")
+    manifold_height = st.number_input("歧管层高度 [mm]", value=1.8, min_value=0.2, max_value=5.0, step=0.1)
+    n_rings = st.number_input("环形微通道数", value=13, min_value=2, max_value=100)
+    n_sectors = st.number_input("总歧管分流流道数", value=16, min_value=4, max_value=50, step=2)
+    inlet_diameter = st.number_input("中心入口直径 [mm]", value=4.5, min_value=0.0, max_value=200.0)
+
+    st.divider()
+
+    # --- 高级几何参数 ---
+    st.subheader("高级几何参数")
+    coldplate_length = st.number_input("冷板长度 [mm]", value=coldplate_diameter)
+    coldplate_width = st.number_input("冷板宽度 [mm]", value=coldplate_diameter)
+    total_thickness = st.number_input("冷板总厚度 [mm]", value=4.2)
+    base_thickness = st.number_input("基板厚度 [mm]", value=0.5)
+    ring_spacing = st.number_input("环形通道间距 [mm]", value=0.6, step=0.01, format="%.3f")
+    inlet_slot_width = st.number_input("窄进液歧管缝宽 [mm]", value=0.5, step=0.01, format="%.3f")
+    outlet_slot_width = st.number_input("宽出液歧管缝宽 [mm]", value=1.5, step=0.01, format="%.3f")
+    channel_shape_name = st.selectbox(
+        "微通道截面形状",
+        ["RECTANGULAR", "CIRCULAR", "TRAPEZOIDAL", "TRIANGULAR"],
+        index=0,
+    )
+    channel_diameter = st.number_input("圆形截面直径 [mm]", value=0.3, step=0.01, format="%.3f")
+    trapezoid_side_angle = st.number_input("梯形侧壁角 [°]", value=54.7)
+    substrate_material = st.text_input("基板材料", value="copper")
+    sintering_material = st.text_input("烧结材料", value="silver")
 
     st.divider()
 
     # --- 工况参数 ---
     st.subheader("运行工况")
     heat_flux = st.number_input("热流密度 [W/cm²]", value=633.0, min_value=1.0, max_value=700.0)
-    sp_flow = st.number_input("单相质量流量 [g/s]", value=39.0, min_value=0.5, max_value=50.0)
-    tp_flow = st.number_input("两相质量流量 [g/s]", value=6.0, min_value=1.0, max_value=20.0)
+    sp_flow = st.number_input("单相质量流量 [g/s]", value=39.0, min_value=0.5, max_value=200.0)
+    tp_flow = st.number_input("两相质量流量 [g/s]", value=6.0, min_value=1.0, max_value=200.0)
     T_inlet = st.number_input("进口温度 [°C]", value=20.0, min_value=10.0, max_value=80.0)
 
     st.divider()
@@ -92,12 +115,26 @@ with st.sidebar:
 geo = ManifoldRingChannelGeometry(
     chip_area=chip_area,
     chip_length=chip_length,
-    channel_width=channel_width,
-    channel_height=channel_height,
-    fin_width=fin_width,
+    coldplate_length=coldplate_length,
+    coldplate_width=coldplate_width,
+    total_thickness=total_thickness,
     manifold_height=manifold_height,
+    inlet_diameter=inlet_diameter,
     n_rings=n_rings,
     n_sectors=n_sectors,
+    channel_shape=ChannelShape[channel_shape_name],
+    channel_width=channel_width,
+    channel_height=channel_height,
+    channel_diameter=channel_diameter,
+    trapezoid_side_angle=trapezoid_side_angle,
+    fin_width=fin_width,
+    base_thickness=base_thickness,
+    ring_spacing=ring_spacing,
+    ring_channel_width=channel_width,
+    inlet_slot_width=inlet_slot_width,
+    outlet_slot_width=outlet_slot_width,
+    substrate_material=substrate_material,
+    sintering_material=sintering_material,
 )
 
 # ===== 主界面标签页 =====
@@ -160,7 +197,7 @@ with tab2:
 
     # 单相热流密度扫描
     st.subheader("单相水冷性能随热流密度变化")
-    qf_sweep = np.linspace(50, 633, 30)
+    qf_sweep = np.linspace(50, min(heat_flux, 633), 30)
     sp_results = [sp_sim.simulate(qf, sp_flow, T_inlet) for qf in qf_sweep]
 
     col_chart1, col_chart2 = st.columns(2)
@@ -310,7 +347,6 @@ with tab5:
 # ===== 底部 =====
 st.divider()
 st.caption("仿荷叶歧管微通道冷板仿真工具 v1.0 | 基于浙大吴赞课题组文献 | Xin Z, et al. Energy (2025) & ECM (2026)")
-
 
 if __name__ == "__main__":
     try:
