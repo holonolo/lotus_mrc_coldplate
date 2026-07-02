@@ -1,0 +1,942 @@
+--- PAGE 1 ---
+Flow boiling heat transfer in a lotus leaf-inspired microchannel heat sink 
+with enhanced critical heat flux for large area chips
+Zhicheng Xin a,b,d, Weiyu Tang c, Sihui Hong a,*, Zan Wu a,b,d
+a College of Electrical Engineering, Zhejiang University, Hangzhou 310027, China
+b Key Laboratory of Power Semiconductor Materials and Devices of Zhejiang Province & Institute of Advanced Semiconductors, ZJU-Hangzhou Global Scientific and 
+Technological Innovation Center, Hangzhou, Zhejiang 311215, China
+c Power and Wide-band-gap Electronics Research Laboratory (POWERlab), Institute of Electrical Engineering, ´Ecole Polytechnique F´ed´erale de Lausanne (EPFL), 
+Lausanne, Switzerland
+d Institute of Fundamental and Transdisciplinary Research, Zhejiang University, Hangzhou, Zhejiang 311215, China
+A R T I C L E  I N F O
+Keywords:
+Large area chip
+Chip cooling
+Microchannel
+Heat transfer
+Silver sintering
+Critical heat flux
+A B S T R A C T
+Driven by the performance demands of microprocessors and power chips, there is a growing trend to increase the 
+number of transistors and chip area in integrated circuit designs. Consequently, the thermal design power (TDP) 
+of chips increases, necessitating efficient heat dissipation to ensure chip performance and reliability. In this 
+study, a lotus leaf-inspired manifold ring-shaped channel cold plate was designed to cool high-power chips, 
+inspired by the fluid pathways in lotus leaves. The heat sink was fabricated from copper through numerical 
+topology optimization and was then assembled using silver sintering. The transitions in flow patterns and heat 
+transfer mechanisms within the new heat sink design are observed and reported for the first time. The flow 
+patterns in the manifold region can be categorized as bubbly flow, slug flow, annular flow, pulsating-annular 
+flow, and mist flow. Pulsating-annular flow exhibits the highest pressure drop and mass flow rate fluctuations, 
+significantly enhancing the heat transfer coefficient. The average heat transfer coefficient, critical heat flux, and 
+COP of the new heat sink design are up to 2.13 W/(cm2⋅K), 267.05 W/cm2, and 18,906, with a hydraulic 
+diameter of 0.466 mm. Compared to traditional large-area chip parallel microchannel heat sink designs, the 
+experimental results indicate that the new design enhances the heat transfer coefficient, critical heat flux, and 
+COP by up to 56.32 %, 1728.28 %, and 472.65 %, respectively, at a similar mass flow rate, despite its a larger 
+hydraulic diameter. The new design can dissipate up to 801 W of heating power and, for the first time, achieve an 
+effective heat flux dissipation of 267 W/cm2 using HFE-7100 for large-area chips. This research could provide a 
+valuable reference for the design and thermal management of large-area chips and packaging.
+1. Introduction
+Integrated circuits have demonstrated significant advancements in 
+microelectronics integration and miniaturization [1]. To meet the 
+growing demands of chip performance development, the number of 
+microprocessor cores increases annually [2]. Consequently, the package 
+size, die area, and thermal design power (TDP) are also increasing. The 
+package size, die area, and TDP of the latest server CPUs (Inter Xeon w9- 
+3959X and Xeon 6980P) have already reached 77.5 mm × 56.5 mm, 4 ×
+477 mm2, and 500 W, respectively [3]. For multi-core GPU micropro­
+cessors, the latest model (NVIDIA GB200) has a TDP exceeding 1200 W 
+[4]. The higher power and larger area of chips impose greater demands 
+on heat dissipation [5]. The maximum junction temperatures for 
+microprocessors and power chips are 100 ℃ [3] and 150 ℃ [6], 
+respectively. When the junction temperature exceeds the maximum 
+allowable operating temperature, integrated circuit chips may experi­
+ence performance degradation or thermal failure [7]. Therefore, the 
+implementation of effective thermal management strategies for chips is 
+crucial.
+Compared with conventional air cooling, liquid cooling offers higher 
+heat dissipation capacity [8] and better temperature uniformity[9], 
+making it one of the most effective cooling solutions for high- 
+performance computing systems [10]. Compared to single-phase liquid 
+cooling, two-phase liquid cooling offers higher heat dissipation potential 
+within confined spaces. The flow boiling enhancement can be catego­
+rized into two approaches: improving the channel wall surface and 
+modifying the channel cross section.
+* Corresponding author.
+E-mail address: sihuihong@zju.edu.cn (S. Hong). 
+Contents lists available at ScienceDirect
+Energy Conversion and Management
+journal homepage: www.elsevier.com/locate/enconman
+https://doi.org/10.1016/j.enconman.2025.120795
+Received 21 March 2025; Received in revised form 24 October 2025; Accepted 19 November 2025  
+Energy Conversion and Management 348 (2026) 120795 
+Available online 24 November 2025 
+0196-8904/© 2025 Elsevier Ltd. All rights are reserved, including those for text and data mining, AI training, and similar technologies. 
+
+
+=====PAGE BREAK=====
+
+--- PAGE 2 ---
+The first approach involves modifying the channel wall surface to a 
+rough texture, such as a porous structure [11–13] or nanostructure 
+[14–16]. The auxiliary geometrical features facilitate bubble nucleation 
+and increase the heat transfer area [17]. Zhang et al. [11] investigated 
+the flow boiling heat transfer and pressure drop in four microchannel 
+heat sinks coated with porous surfaces. They found that the porous- 
+coated surface can enhance the CHF and HTC by 53.2 % and 114.5 %, 
+respectively, compared to smooth surfaces. Yin et al. [16] designed 
+multi-stage enhanced microchannels with micro/nanostructures and 
+found that the HTC was greatly improved by up to 295.2 %, compared to 
+open microchannels with a smooth structure. Another method involves 
+adding microstructures to the channel wall surface, such as micropin- 
+fins [18–20] and reentrant cavity structures [21–23]. Li et al. [21] 
+found that the micronozzles could sustain the liquid film through 
+capillarity induced in a reentry cavity array, thereby enhancing the CHF 
+by up to 70 %, compared to plain microchannels. However, surface 
+modification increases the complexity of heat sink fabrication and may 
+become ineffective after long-term use [24].
+The microchannel cross-section can enhance heat transfer by pre­
+venting bubbles from obstructing the flow boiling [25]. The geometry of 
+the microchannel is modified to drive the bubbles to detach from the 
+channel wall, based on the rectangular channel, such as a triangle shape 
+(V-shape) [26], diverging shape [27], Ω-shaped [28], and wave-shaped 
+[29]. Chen et al. [26] investigated the heat transfer performance of 
+triangular, rectangular, and trapezoidal cross-sections. They found that 
+the triangular cross-section exhibited the highest thermal efficiency. Cui 
+and Liu [29] studied the flow boiling in wave-shaped channels. They 
+found that the wave-shaped channel can improve CHF by 28.89 % and 
+enhance the HTC in the nucleate boiling and thin film evaporation stages 
+by 60.76 % and 52.71 %, respectively. Additionally, flow disruption 
+structures can interfere with the development of the thermal boundary 
+layers [25]. Megahed [30] introduced a cross-linked structure in the 
+heat sink, achieving better temperature uniformity by shortening the 
+thermal boundary layer.
+However, as the chip area increases, flow maldistribution intensifies, 
+leading to local dry-out and reduced critical heat flux (CHF). Al-Zaidi 
+et al. [31] reported CHF values of 7.5–20 W/cm2 for a 500 mm2 heat­
+ing area, while Fu et al.[32] observed CHF between 11.7 and 25.6 W/ 
+cm2 for a 450 mm2 area. This indicates that uniform coolant distribution 
+is a key challenge for large-area, high-heat-flux chips.
+To address this, our previous numerical study proposed a silicon- 
+based ring-shaped connection channel design [33]. The selection of 
+silicon as the base material was driven by its high compatibility with 
+semiconductor processes, a thermal expansion coefficient perfectly 
+matching with chips, and the capability to achieve high-precision, 
+complex geometries through mature microfabrication techniques like 
+Deep Reactive-Ion Etching. Regarding the ring-shaped channel archi­
+tecture itself, this design offers distinct advantages over conventional 
+parallel serpentine channels. It mitigates flow stagnation zones, pro­
+motes fluid mixing and redistribution, and consequently demonstrates 
+the potential for superior chip surface temperature uniformity while 
+reducing overall flow resistance.
+Building upon this hydraulic framework, a lotus leaf-inspired struc­
+ture is introduced. Its flow-path network mimics the vein-capillary 
+transport network of a natural lotus leaf. Our design transcends mere 
+morphological imitation; it incorporates the underlying physics that 
+reduce flow resistance. Unlike random surface roughness or periodic 
+micro-fin arrays, this bio-inspired fractal pattern is engineered to induce 
+specific secondary flows or vortices within the channels. This enhances 
+fluid-wall interaction and heat transfer augmentation without a signif­
+icant penalty in pumping power. This biomimetic design is fabricated 
+and assembled using copper, providing good manufacturability and 
+coolant compatibility.
+Because of the key properties of HFE-7100 [34], such as its very low 
+dielectric constant (ensuring compatibility with electronics), suitable 
+boiling point (for single-phase and potential phase-change cooling), 
+good material compatibility, and environmental friendliness (zero 
+ODP), the dielectric fluid HFE-7100 has been widely applied in the 
+cooling of power modules [35], batteries [36], chip cooling [37], and 
+other electronic devices. In the two-phase heat transfer process, its low 
+Nomenclature
+A
+Area, m2
+Aheat
+Heating area, cm2
+Awet
+Wetted heat transfer area between coolant and 
+microchannel, cm2
+COP
+Coefficient of performance
+cp
+Specific heat, J/(kg⋅K)
+Dh
+Hydraulic diameter, mm
+h
+Heat transfer coefficient, W/(m2⋅K)
+heff
+Effective base-area-averaged heat transfer coefficient, W/ 
+(m2⋅K)
+hwet
+Wet-area-averaged heat transfer coefficient, W/(m2⋅K)
+H
+Height, mm
+HTC
+Heat transfer coefficient, W/(cm2⋅K)
+k
+Thermal conductivity, W/(m⋅K)
+˙m
+Mass flow rate, g/s
+Δp
+Pressure drop, kPa
+qeff
+Heat flux, W/cm2
+Qeff
+Net heat transfer to the fluid, W
+Qheater
+Heat supplied by the heater, W
+Qloss
+Heat loss to the ambient, W
+Rt
+Thermal resistance, cm2⋅K/W
+T
+Temperature, ℃
+TDP
+Thermal design power
+TTV
+Thermal test vehicle
+ΔT
+Temperature difference, ℃
+U
+Uncertainty
+W
+Width, mm
+Greek letters
+δ
+Thickness, mm
+η
+efficiency
+μ
+Fluid dynamic viscosity, Pa⋅s
+ρ
+density, kg/m3
+Subscripts
+ave
+Average
+bonding
+The bonding layer between microchannel and manifold
+c
+Channel
+cond
+Conductive
+conv
+Convective
+chip
+Chip
+f
+Fluid
+fin
+Center fins
+in
+Inlet
+m
+Manifold
+m,in
+Manifold inlet
+m,out
+Manifold outlet
+max
+Maximum
+min
+Minimum
+out
+Outlet
+w
+Microchannel wall
+wet
+Wetted
+Z. Xin et al.                                                                                                                                                                                                                                      
+Energy Conversion and Management 348 (2026) 120795 
+2 
+
+
+=====PAGE BREAK=====
+
+--- PAGE 3 ---
+surface tension and excellent wettability on the copper-based heat sink 
+promote bubble nucleation and spreading. Combined with the flow 
+distribution advantage of the lotus-leaf-inspired design, HFE-7100 fa­
+cilitates accelerated rewetting and guides the coolant smoothly through 
+the microchannels, resulting in more stable fluid supply and reduced 
+local dry-out. Therefore, HFE-7100 is employed in this study.
+In summary, although many studies have enhanced two-phase heat 
+transfer through surface modifications or channel design, most focus on 
+small heating areas. For large-area, high-power chips, flow nonunifor­
+mity leads to low CHF and a low energy coefficient of performance 
+(COP) in conventional heat sink designs. This study proposes and 
+experimentally validates a lotus leaf-inspired design using HFE-7100, 
+aiming to achieve higher CHF, higher HTC, a higher COP, and 
+improved temperature uniformity, thereby providing design guidance 
+for next-generation liquid cooling technologies for high-power chips.
+2. Experimental method
+2.1. Design of the lotus leaf-inspired microchannel
+The conceptual design of the lotus leaf-inspired manifold micro­
+channel is illustrated in Fig. 1. The fluid first enters the central fin array, 
+creating a jet-impingement cooling region. The HTC is enhanced due to 
+the high-speed jet-impingement effect. The fluid then flows into the 
+manifold region, where its flow direction is altered by the manifold 
+layer’s diversion. In the connection microchannels, fluid flows from the 
+adjacent manifold sections into individual microchannels. The fluid 
+within the connection microchannel undergoes a cross-flow mixing ef­
+fect due to the opposing flow directions, which helps reduce the increase 
+in fluid temperature and facilitates bubble removal. The flow direction 
+creates a T-type flow pattern within the microchannel, a unique feature 
+of the manifold ring-shaped connection channel. The fluid flow path 
+design is inspired by the stem-vein-capillary structure of the lotus leaf’s 
+tertiary sap supply system.
+However, the flow and thermal boundary layers may develop along 
+the flow path within the connection ring-shaped channel. The manifold 
+layer is integrated with the ring-shaped connection channel to shorten 
+the flow path. Additionally, the large manifold outlet region provides 
+ample space for bubble growth. The expansion design aids in the rapid 
+removal of bubbles from the heat sink. Therefore, this novel lotus leaf- 
+inspired manifold microchannel design may demonstrate superior 
+thermal and hydraulic performance during the flow boiling process.
+The lotus leaf-inspired manifold microchannel design adopts a flow- 
+path architecture analogous to the vein–capillary transport network of a 
+lotus leaf. By integrating a jet-impingement core, a diversion manifold, 
+and ring-shaped connection channels, the design achieves multi- 
+directional liquid redistribution and cross-flow mixing. As elaborated 
+in the Introduction, this biomimetic approach is distinct from conven­
+tional surface structuring. It leverages the fundamental flow-resistance- 
+lowering principles observed in nature, aiming to generate specific 
+secondary flows that enhance mixing and heat transfer. This biomimetic 
+flow direction synergizes with the low surface tension of HFE-7100, 
+promoting rapid rewetting and guiding the coolant smoothly through 
+the microchannels. As a result, it ensures stable fluid supply, reduces 
+local dry-out, and enhances temperature uniformity and boiling stability 
+for large-area and high-power chips.
+The inclusion of a baffle in the manifold layer can improve mass flow 
+maldistribution and temperature nonuniformity during single-phase 
+heat transfer in a manifold microchannel heat sink [38]. However, in 
+the two-phase heat transfer regime, the baffle above the channels may 
+hinder bubble growth and removal. As a result, the inclusion of the 
+baffle impairs flow boiling performance. Two distinct manifold struc­
+tures are designed for the connection ring-shaped channel based on the 
+optimization results for single-phase heat transfer. Sample 1 represents 
+the manifold without a baffle, while Sample 2 features the manifold with 
+a baffle design, as shown in Fig. 2(a). ANSYS FLUENT software was 
+utilized for conjugate thermal-fluid simulations to optimize manifold 
+and channel dimensions, enhancing both thermal and hydraulic per­
+formance. The optimization goal is to minimize the maximum temper­
+ature rise at the heat source surface and reduce the pressure drop. The 
+specific dimensional parameters of the lotus leaf-inspired microchannel 
+are presented in Fig. 2(b) and Table 1.
+2.2. Fabrication of the thermal test vehicle
+A gold film resistor is employed as the large-area heating source for 
+the TTV. The chip area is a 20 mm diameter circle, with two serpentine 
+lines applied to generate uniform heat. The gold film resistors were 
+fabricated using photolithography and magnetron sputtering on an 
+insulated silicon dioxide layer above intrinsic silicon. Additionally, a 
+silver film was sputtered onto the backside of the silicon wafer for the 
+subsequent sintering process. The fabrication process and a detailed 
+view of the heating chip are presented in Figs. 3(a), (b),(c), and (d).
+The TTV comprises five components: a glass top layer, a copper 
+manifold layer, a copper ring-shaped channel layer, an active metal 
+brazing (AMB) plate, and a chip. The copper ring-shaped channel layer 
+Fig. 1. The MRC structure diagram: (a) a 3D view of the manifold ring-shaped channel heat sink (where the blue area and the red area represent the inlet region and 
+outlet region, respectively); (b) a local enlargement of the flow structure; (c) the inlet and outlet region; (d) the stem-vein-capillary structure of the lotus leaf’s 
+tertiary sap supply system.
+Z. Xin et al.                                                                                                                                                                                                                                      
+Energy Conversion and Management 348 (2026) 120795 
+3 
+
+
+=====PAGE BREAK=====
+
+--- PAGE 4 ---
+incorporates a central fin array and 12 microchannels. The manifold 
+layer is positioned above the microchannel layer, dividing the micro­
+channels into eight connected sections. Due to the mismatch in thermal 
+expansion coefficients between the silicon chip and the copper-based 
+heat sink, the AMB plate is positioned between them to prevent the 
+chip from cracking during the thermal test. The transparent quartz glass 
+top layer provides a visual reference for observing bubble behavior and 
+flow pattern transitions.
+The components are assembled using the silver sintering technique 
+due to its high thermal conductivity and reliability. The commercial 
+silver paste ASP 338–28 (Heraeus) is employed to prepare a silver sin­
+tered layer with high-quality sintering and low porosity via the hot 
+pressing sintering process. The thermal conductivity of the silver sin­
+tered layer reaches up to 254 W/(m·K), as measured using a laser 
+thermal conductivity meter (NETZSCH LFA 457, MicroFlash). Finally, 
+the glass top layer is assembled with the sintered samples using bolt 
+fasteners to complete the preparation of the TTV, as shown in Fig. 4.
+2.3. Test facility
+The diagram of the experimental system is depicted in Fig. 5. The 
+entire experimental system can be divided into a coolant degassing 
+system and an experimental loop system. In the coolant degassing sys­
+tem, a storage tank equipped with a ceramic heater was used to degas 
+HFE-7100 at ambient pressure prior to the experimental trials. A plate- 
+type heat exchanger was placed between the storage tank and the fluid 
+loop to lower the liquid temperature and prevent cavitation in the gear 
+pump. A vacuum pump and an intermediate bypass system were used to 
+evacuate the experimental loop entirely, removing non-condensable 
+gases from the injected coolant. Within the experimental loop, the 
+coolant flows through the following components: the system pressure 
+regulator, a 50 μm filter, a gear pump, a Coriolis mass flow meter, a plate 
+heat exchanger, a 15 μm filter, a preheater, the test section, and two 
+additional plate heat exchangers. The gear pump can deliver a maximum 
+flow rate of 1.0 L/min and a maximum pressure difference of 650 kPa. 
+The Coriolis mass flow meter precisely measures the mass flow rate of 
+the coolant. Two heat exchangers were placed downstream of the test 
+section to cool the coolant to a specified temperature. The preheater 
+supplies heat to maintain the inlet temperature constant when the low 
+mass flow rate causes poor heat transfer performance in the heat ex­
+changers. The high-speed camera observes the bubble behavior and flow 
+pattern transitions.
+Fig. 6(a) illustrates the tested TTV system. An infrared camera, 
+equipped with a 45-degree angled infrared reflector, was used to mea­
+sure the temperature distribution of the heating chip. The heating chip 
+was powered by Joule heating through a manually regulated DC power 
+supply. The experimental setup was thermally insulated by wrapping the 
+test section and connecting pipes with elastomeric foam. A pressure 
+transmitter monitored the inlet pressure of the test section, while a 
+differential pressure transmitter measured the pressure drop within the 
+test section. Inlet and outlet coolant temperatures were recorded using 
+0.3 mm T-type thermocouples. The high-speed camera recorded videos 
+of bubble behavior and flow patterns in the TTV through the microscope 
+lens, capturing the transition process during flow boiling. The physical 
+diagrams of the TTV are shown in Fig. 6(b). The TTV consists of the 
+terminals, AMB plate, heating source, and copper heat sink, with a total 
+thickness of 4.2 mm, fulfilling the requirements for electronics cooling. 
+The chip surface was coated with a layer of black paint to increase its 
+emissivity. Because the inlet is positioned above the visualization glass 
+cover, panoramic shots of the entire heat sink are unclear due to the 
+occlusion of the inlet tube and the limitations of the focal length. Given 
+the symmetry of the manifold design, the mass flow within the eight 
+flow units can be considered approximately uniform. As a result, the 
+filming of the flow transition is focused on one of the eight units. The 
+two-phase flow transition in the area outside the high-speed camera’s 
+visual field is similar to that recorded and displayed in the flow images, 
+as verified by adjusting the camera lens and observing during the ex­
+periments. As shown in Fig. 6(c), the flow pattern in the microchannel 
+region differs from that in the manifold region. However, some flow 
+patterns in the microchannel region cannot be clearly observed due to 
+the shading caused by the flow patterns in the manifold region.
+The operating conditions were as follows: the inlet mass flow rate 
+ranged from 3 to 12 g/s, the inlet fluid temperature Tin was set at 50 ◦C 
+(±1◦C), and the outlet pressure Pout was maintained between 100 kPa 
+and 110 kPa. The experimental procedure is as follows. First, HFE-7100 
+in the storage tank was degassed by vigorous boiling for two hours prior 
+to the experiments. Meanwhile, the experimental loop was evacuated to 
+the lowest possible pressure. Next, the test section was assembled and 
+connected to the experimental loop. Data collection began once the 
+system reached a steady state. Temperature, pressure and power data 
+were recorded as the average of a minimum of 20 consecutive sampling 
+points. Testing was terminated when the heater surface approached a 
+maximum temperature of approximately 150 ◦C or when the pressure in 
+the TTV could no longer be maintained at a constant value. Each 
+experimental condition was tested until the maximum heat flux was 
+reached.
+3. Data reduction
+3.1. Data reduction
+The total heating power of the heating chip in the TTV is calculated 
+as follows: 
+Fig. 2. The schematic diagram of two designs for lotus leaf-inspired 
+microchannel.
+Table 1 
+Optimized geometric parameters.
+Region
+Parameter
+Symbol
+Value
+Microchannels
+microchannel depth
+Hc
+1.4 mm
+microchannel width
+Wc
+0.3 mm
+wall thickness
+Ww
+0.3 mm
+Manifold
+manifold depth
+Hm
+1.8 mm
+width of the manifold inlet
+Wm,in
+0.5 mm
+width of the manifold outlet
+Wm,out
+1.5 mm
+Fin array
+fin height
+Hfin
+1.5 mm
+Z. Xin et al.                                                                                                                                                                                                                                      
+Energy Conversion and Management 348 (2026) 120795 
+4 
+
+
+=====PAGE BREAK=====
+
+--- PAGE 5 ---
+Qtotal = V × I
+(1) 
+The V and I are the voltage and current of the DC power supply.
+Most heat is absorbed in the coolant, but a minor portion of heat is 
+dissipated to the environment through natural convection and radiation 
+heat transfer. The effective power transferred to the coolant, denoted as 
+Qeff can be calculated as: 
+Qeff = Qtotal −Qloss
+(2) 
+The Qloss is the heat power that is dissipated into the environment. It can 
+be determined by calibrating the heating chip under natural convection 
+and radiation heat transfer conditions. The relationship between heat 
+loss and temperature can be determined as: 
+Qloss = 0.1055 ×
+(
+Tchip,ave −3.089
+)
+(3) 
+The heat source here is considered a uniform surface heat source, so the 
+effective heat flux qeff are: 
+qeff = Qeff
+Achip
+(4) 
+Achip is the chip area, and the area is 3.14 cm2.
+The heat transfer process is divided into single-phase sensible heat­
+ing and two-phase latent heating. The thermodynamic quality at the 
+outlet is calculated using the following equation. 
+xout = Qeff −Qsesible
+˙mhLV
+= Qeff −
+˙mcp
+(
+Tsat,out −Tf,in
+)
+˙mhLV
+(5) 
+hLV is the latent heat of vaporization and is evaluated at the saturation 
+temperature based on the outlet pressure, the saturation temperature, 
+and other thermophysical properties of the coolant HFE-7100 from the 
+NIST database.
+According to the average temperature of the chip surface, the ther­
+Fig. 3. The fabrication process of the heating source and components of TTV (a) The heating source fabrication process: Step 1: LPCVD SiO2, Step 2: photoli­
+thography, sputtering, and lift-off of Ti/Au, Step 3: sputtering of Ag film; (b) the detailed diagram of the heating source; (c) the components of the TTV; (d) the fluid- 
+contact region in the TTV.
+Fig. 4. The fabrication process of the TTV.
+Z. Xin et al.                                                                                                                                                                                                                                      
+Energy Conversion and Management 348 (2026) 120795 
+5 
+
+
+=====PAGE BREAK=====
+
+--- PAGE 6 ---
+mal resistance R can be defined as: 
+Rtotal = Tchip,ave −Tin
+qeff
+(6) 
+Where the Tchip,ave is the average temperature of the chip.
+Since the chip and channel cover areas are equal, the heat transfer 
+path can be simplified as a one-dimensional heat transfer model. The 
+total thermal resistance Rtotal, is segmented into three components: Rcond 
+for conduction thermal resistance, Rconv for convection resistance, and 
+Rheat for fluid heat thermal resistance.
+Fig. 5. Schematic diagram of the TTV experimental setup and test facility.
+Fig. 6. The physical diagram of (a) the test section, (b) the thermal test vehicle (TTV) and (c) the high-speed camera observation.
+Z. Xin et al.                                                                                                                                                                                                                                      
+Energy Conversion and Management 348 (2026) 120795 
+6 
+
+
+=====PAGE BREAK=====
+
+--- PAGE 7 ---
+The conduction thermal resistance Rcond can be calculated through 
+Fourier’s law of heat conduction: 
+Rcond = δSiO2
+kSiO2
++ δAg
+kAg
++ δAg−sin
+kAg−sin
++ δCu
+kCu
++ δAlN
+kAlN
++ δsub
+ksub
+(7) 
+Where Tw,ave is the average temperature of the channel substrate. The 
+δSiO2,δAg,δAg-sin,δCu,δAlN, and δsub denote the thickness of the silicon oxide 
+layer, silver film, sintered-Ag layer, copper layer, ceramic layer, and 
+channel substrate, respectively. The kSiO2, kAg, kAg-sin, kCu, kAlN, and ksub 
+stand for the thermal conductivity of the silicon oxide layer, silver film, 
+sintered-Ag layer, copper layer, ceramic layer, and substrate (copper), 
+respectively. The parameter value is shown in Table 2. Table 3 lists the 
+uncertainties of the measured parameters.
+The thermal conductivity of Cu was extracted from the ANSYS 
+FLUENT solid database. The thermal conductivity of the sintered silver 
+layer was measured by the laser thermal conductivity meter, as given in 
+section 2.3.
+The convective thermal resistance Rconv is expressed as: 
+Rconv = Tw,ave −Tref
+qeff
+(8) 
+Tref is defined as the average fluid temperature between the inlet and 
+outlet temperature.
+As the fluid absorbs heat, it also heats up in the process. The thermal 
+resistance Rheat accounts for the rise in the average temperature of the 
+fluid due to this heat absorption. It can be expressed as: 
+Rheat = Tref −Tin
+qeff
+(9) 
+The fin efficiency of the microchannel structure in the cold plate ηfin,c is 
+calculated as: 
+ηfin,channel = tanh(mHc)
+mHc
+(10) 
+m =
+̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅
+2hc
+kCuWc,fin
+√
+(11) 
+The global fin efficiency ηchannel of the ring-shaped channel is expressed 
+as: 
+ηc = 1 −
+Afin,c
+Awet,c
+(
+1 −ηfin,c
+)
+(12) 
+Therefore, the heat flux transferred to the fluid through the ring-shaped 
+channel is calculated: 
+qc =
+(
+Tw,ave −Tref
+)
+⋅h⋅Awet,c⋅ηc
+(13) 
+The fin efficiency of the manifold structure ηfin,m is calculated as follows: 
+ηfin,m = tanh(nHm)
+nHm
+(14) 
+n =
+̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅
+2hm
+kCuWm,fin
+√
+(15) 
+The global fin efficiency ηmmanifold of the manifold is expressed as: 
+ηm = 1 −
+Afin,m
+Awet,m
+(
+1 −ηfin,m
+)
+(16) 
+The heat transferred to the fluid through the manifold plate is calculated 
+by: 
+qm =
+(
+Tbonding,ave −Tref
+)
+⋅hm⋅Awet,m⋅ηm
+(17) 
+Given the high thermal conductivity of sintered silver and its minimal 
+thickness (0.02 mm), the temperature at the top of the channel fin is 
+assumed equal to the temperature at the base of the manifold fin (the 
+bonding temperature). This temperature can be calculated using the 
+ideal fin model: 
+Tbongding,ave =
+Tw,ave
+cosh(mHc)
+(18) 
+where m is the parameter in equation (6).
+The sum of all the heat fluxes of the channel and the manifold is the 
+effective heat flux: 
+qeff = qc + qm
+=
+[
+hc⋅
+(
+Tw,ave −Tref
+)
+⋅Awet,c⋅ηcp + hm⋅
+(
+Tw,ave
+cosh(mHc) −Tref
+)
+⋅Awet,m⋅ηm
+]
+(19) 
+The average convective HTC can be solved by combining equations (5) 
+to (13) and iterative calculation. The Nusselt number in the micro­
+channel can be calculated as: 
+Nu = hcDh
+kfluid
+(20) 
+Where Dh is the hydraulic diameter of the microchannel: 
+Dh = 2WcHc
+Wc + Hc
+(21) 
+The effective base-area-averaged heat transfer coefficient heff is on the 
+footprint area of the cooling chip, which is expressed as: 
+heff =
+qeff
+Tw,ave −Tref
+(22) 
+The following equation calculates the average mass flux through each 
+channel: 
+Gc =
+˙m
+NmNcHcWc
+(23) 
+The Nm is the number of manifold regions (Nm = 8), and NC is the 
+number of channels (Nc = 12).
+The COP can be defined as the flow equation: 
+Table 2 
+The parameters of each component.
+Component
+Thickness δ
+Thermal conductivity k (W/(m*k))
+Si
+500 nm
+150 [39]
+SiO2
+300 nm
+1 [39]
+Ag
+100 nm
+430 [40]
+Sintered silver (Ag-sin)
+66.7 μm
+254
+Cu
+0.1 mm
+387.6
+AlN
+0.66 mm
+170 [41]
+Substrate
+1.0 mm
+387.6
+Table 3 
+Uncertainties of the measured parameters.
+Measured parameters
+Unit
+Symbol
+Uncertainty
+Heating chip temperature
+℃
+Tchip
+± 1 ℃
+Inlet and outlet temperature
+℃
+Tf,in, Tf,out
+± 0.1 ℃
+Inlet and outlet pressure drop
+kPa
+ΔP
+± 0.4 %
+Mass flow rate
+g/s
+˙m
+± 0.05 %
+Voltage of the chip
+V
+Uc
+± 0.1 %
+Current of the chip
+A
+Ic
+± 0.1 %
+Z. Xin et al.                                                                                                                                                                                                                                      
+Energy Conversion and Management 348 (2026) 120795 
+7 
+
+
+=====PAGE BREAK=====
+
+--- PAGE 8 ---
+COP = Qmax
+P
+= qmaxAsource
+P
+(24) 
+P = vΔp
+(25) 
+The P is the pump power, v is the volume flow rate of the fluid, Δp is the 
+pressure drop of the heat sink.
+3.2. Measurement uncertainty
+The uncertainty associated with directly measured parameters is 
+contingent upon the precision of the test instruments. Before conducting 
+measurements, the uncertainty in the infrared measurement was cali­
+brated and evaluated by aligning the average chip temperature recorded 
+by the infrared camera with the reference average chip temperature 
+under conditions with no power input.
+During calibration, the TTV was incorporated into the experimental 
+loop, and the chip temperature was regulated by adjusting the coolant 
+temperature. The coolant temperature was measured using the ther­
+mocouples at the sample’s inlet and outlet, with the average tempera­
+ture of these thermocouples acting as the reference temperature. 
+Subsequently, the average temperature recorded by the infrared camera 
+was adjusted to align with the reference temperature, thereby calibrat­
+ing the infrared camera’s measurement accuracy. After calibration, the 
+uncertainty of Tchip,ave measured by the infrared camera is ± 1◦C under 
+100 ℃ and ± 1 % above 100 ℃. The uncertainty of the inlet and outlet 
+fluid temperatures, Tf,in, and Tf,out, was calibrated to ± 0.1◦C, as deter­
+mined by the thermocouples.
+The uncertainty of the indirectly measured parameters was calcu­
+lated using error propagation theory. Suppose y is the indirectly calcu­
+lated parameter, which can be calculated from several directly measured 
+parameters xi, as represented by the following equation: 
+y = f(x1, x2, ⋯, xn)
+(18) 
+Then, the uncertainty Uy in y, as determined by the uncertainty in each 
+independent parameter Uxi, can be expressed using the following 
+equation. 
+U2
+y =
+∑
+n
+i=1
+(∂y
+∂xi
+Uxi
+)2
+(18) 
+The experimental uncertainties are listed in Table 4 and Fig. 7. The 
+average uncertainties are 1.17 %, 3.68 % and 6.14 % for heat flux, 
+thermal resistance and heat transfer coefficient.
+4. Results and discussion
+The experiments were conducted at an ambient temperature of 
+around 25 ◦C, with the test system being thermally insulated from the 
+surroundings. Initially, tests were performed to measure the tempera­
+ture increase on the chip surface under different heating and flow con­
+ditions. The inlet mass flow rate ˙m ranged from 3 to 12 g/s, and the 
+calculated mass flow rate in the microchannel ranged from 85 to 340 
+(kg/m2·s).
+4.1. Thermal performances
+The average temperature (Tave), temperature difference ΔT (Tmax ¡
+Tave), and heat sink thermal resistance (RSH) of Sample 1 and Sample 2 
+are presented in Fig. 8. The performance of the heat sink was evaluated 
+across mass flow rates ranging from 85 to 340 kg/(m2·s). During the 
+experimental tests, the average chip temperature increased with the 
+heat flux increase. Distinct growth trends were observed in the single- 
+phase and two-phase heat transfer process, as shown in Fig. 8. The up­
+ward trend in the single-phase regime is steeper than that in the two- 
+phase regime, with the ONB point acting as the demarcation point. 
+This could be attributed to the higher HTC in the two-phase regime 
+compared to the single-phase regime. However, the average chip tem­
+perature increased significantly as the heat flux continued to rise, indi­
+cating that heat flux is approaching the CHF.
+The temperature difference reflects the temperature uniformity 
+across the chip surface. The temperature difference increased with the 
+rise in heat flux. No distinct separation point was observed between the 
+single-phase and two-phase regimes. The growth trends of the maximum 
+temperature Tmax and Tave exhibited synchronous variations, influenced 
+by HTC. Consequently, no clear demarcation point existed between the 
+single-phase regime and the two-phase regime. Sample 2 exhibits better 
+temperature uniformity than Sample 1. At the same heat flux, the ΔT is 2 
+℃ lower in Sample 2 than in Sample 1. At the recorded maximum heat 
+flux of 263 W/cm2 in Sample 1, ΔT is 6.5 ℃.
+The change in heat sink thermal resistance (Rt) can also be catego­
+rized into the single-phase and two-phase regimes. The Rt in the two- 
+phase regime is significantly lower than that in the single-phase 
+regime. At a mass flow rate of 85 kg/(m2·s) for Sample 1, the Rt 
+decreased from 1.464 cm2⋅K/W in the single-phase regime to 0.399 
+cm2⋅K/W in the two-phase regime, representing a reduction of 72.74 % 
+in the heat sink thermal resistance. Similarly, at a mass flow rate of 340 
+kg/(m2·s), the Rt decreased from 0.639 cm2⋅K/W to 0.308 cm2⋅K/W, 
+representing a reduction of 51.76 %. It can be observed that the thermal 
+resistance curves at low mass flow rates coincide with those at high mass 
+flow rates in the two-phase regime, exhibiting a more significant 
+reduction in Rt during the transition from single-phase to two-phase 
+regime. At the 85 kg/(m2·s), the Rt reduces from 1.464 cm2⋅K/W in 
+Sample 1 to 1.292 cm2⋅K/W in Sample 2 in the sing-phase regime. 
+However, in the two-phase regime, the minimum Rt increases from 
+0.399 cm2⋅K/W in Sample 1 to 0.433 cm2⋅K/W in Sample 2. This sug­
+gests that the addition of a baffle in the manifold layer can enhance heat 
+transfer in the single-phase regime but may degrade heat transfer in the 
+two-phase regime.
+The temperature distribution maps of the large-area heating source 
+at varying mass flow rates and heat fluxes for Sample 1 and Sample 2 are 
+presented in Fig. 9. These maps are directly derived from the infrared 
+camera. It can be observed that the temperature uniformity is nearly 
+identical in both samples under low heat flux. As the heat flux increases, 
+the uniformity of temperature distribution may deteriorate, particularly 
+at low mass flow rates. In comparison to a low mass flow rate of 85 kg/ 
+(m2·s), a higher mass flow rate of 340 kg/(m2·s) enhances the temper­
+ature distribution uniformity under the same heat flux. The primary 
+Table 4 
+Uncertainties of the calculated parameters.
+Calculated parameters
+Unit
+Symbol
+Error analysis
+Heat flux
+W/cm2
+qeff
+∂qeff
+qeff
+=
+̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅
+(δU
+U
+)2
++
+(δI
+I
+)2
++
+(δTchip,ave
+Tchip,ave
+)2
+√
+Thermal resistance
+cm2·K/W
+Rtotal
+∂Rtotal
+Rtotal
+=
+̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅
+(
+δqeff
+qeff
+)2
++
+(
+δTchip,ave
+Tchip,ave −Tf,in
+)2
++
+(
+δTf,in
+Tchip,ave −Tf,in
+)2
+√
+√
+√
+√
+Heat transfer coefficient
+W/(cm2·K)
+heff
+∂heff
+heff
+=
+̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅̅
+(
+δqeff
+qeff
+)2
++
+(
+δTw
+Tw −Tf,ref
+)2
++
+(
+δTf,ref
+Tw,ref −Tw,ref
+)2
+√
+√
+√
+√
+Z. Xin et al.                                                                                                                                                                                                                                      
+Energy Conversion and Management 348 (2026) 120795 
+8 
