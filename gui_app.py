@@ -11,6 +11,9 @@ import os
 import numpy as np
 import io
 import csv
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 # 添加项目根目录到路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -34,7 +37,10 @@ from core.visualization import (
     plot_comparison_curves,
     plot_boiling_curve,
     plot_sensitivity_analysis,
+    plot_geometry_3d_explosion,
 )
+from core.validation import ModelValidator
+from core.sensitivity import SensitivityAnalyzer
 
 # ===== 页面配置 =====
 st.set_page_config(
@@ -164,10 +170,248 @@ def _make_csv(headers, rows):
     return buf.getvalue().encode('utf-8-sig')
 
 
+# ===== 预计算仿真结果 =====
+sp_sim_main = SinglePhaseSimulation(geo, FluidProperties("water"))
+sp_res_main = sp_sim_main.simulate(heat_flux, sp_flow, T_inlet)
+
+tp_sim_main = TwoPhaseSimulation(geo, FluidProperties(tp_fluid))
+tp_res_main = tp_sim_main.simulate(heat_flux, tp_flow, T_inlet)
+
+analysis_main = ComparativeAnalysis(geo, tp_fluid=tp_fluid)
+cp_main = analysis_main.compare_at_condition(heat_flux, sp_flow, tp_flow, T_inlet)
+
+
+# ===== 一键导出汇报 =====
+if st.button("📤 一键导出完整汇报", type="secondary"):
+    import zipfile
+    import time
+
+    zip_buf = io.BytesIO()
+    with zipfile.ZipFile(zip_buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+        # 几何图
+        zf.writestr("01_俯视图.png", _fig_to_png(plot_geometry_topview(geo)))
+        zf.writestr("02_截面图.png", _fig_to_png(plot_geometry_crosssection(geo)))
+        zf.writestr("03_3D爆炸视图.png", _fig_to_png(plot_geometry_3d_explosion(geo)))
+
+        # 性能曲线
+        zf.writestr("04_对比曲线.png", _fig_to_png(plot_comparison_curves(analysis_main, sp_flow, tp_flow)))
+        zf.writestr("05_沸腾曲线.png", _fig_to_png(plot_boiling_curve(tp_sim_main, tp_flow)))
+
+        # 雷达图
+        fig_r, ax_r = plt.subplots(figsize=(6, 6), subplot_kw=dict(polar=True))
+        cat = ['COP', 'h', '均匀性', '压降(反比)', '热阻(反比)']
+        angles_r = np.linspace(0, 2*np.pi, len(cat), endpoint=False).tolist()
+        angles_r += angles_r[:1]
+        sp_v = [sp_res_main.COP/max(sp_res_main.COP, tp_res_main.COP, 1),
+                sp_res_main.h_conv_cm2/max(sp_res_main.h_conv_cm2, tp_res_main.h_conv_cm2, 0.01),
+                1, 1, 1]
+        tp_v = [tp_res_main.COP/max(sp_res_main.COP, tp_res_main.COP, 1),
+                tp_res_main.h_conv_cm2/max(sp_res_main.h_conv_cm2, tp_res_main.h_conv_cm2, 0.01),
+                1, 1, 1]
+        sp_v += sp_v[:1]; tp_v += tp_v[:1]
+        ax_r.plot(angles_r, sp_v, 'b-o', label='单相')
+        ax_r.fill(angles_r, sp_v, alpha=0.15, color='blue')
+        ax_r.plot(angles_r, tp_v, 'r-s', label='两相')
+        ax_r.fill(angles_r, tp_v, alpha=0.15, color='red')
+        ax_r.set_xticks(angles_r[:-1])
+        ax_r.set_xticklabels(cat)
+        ax_r.legend()
+        zf.writestr("06_雷达图.png", _fig_to_png(fig_r))
+
+        # 数据表
+        geo_data = geo.get_params_dict()
+        zf.writestr("07_几何参数.csv", _make_csv(geo_data.keys(), [geo_data.values()]))
+
+        sp_data = {"热流密度": heat_flux, "流量": sp_flow, "壁温": sp_res_main.T_wall_max,
+                   "换热系数": sp_res_main.h_conv_cm2, "压降": sp_res_main.pressure_drop,
+                   "热阻": sp_res_main.thermal_resistance, "COP": sp_res_main.COP}
+        zf.writestr("08_单相结果.csv", _make_csv(sp_data.keys(), [sp_data.values()]))
+
+        tp_data = {"热流密度": heat_flux, "流量": tp_flow, "壁温": tp_res_main.T_wall_max,
+                    "换热系数": tp_res_main.h_conv_cm2, "压降": tp_res_main.pressure_drop,
+                    "热阻": tp_res_main.thermal_resistance, "COP": tp_res_main.COP,
+                    "CHF": tp_res_main.CHF, "流型": tp_res_main.flow_pattern_name}
+        zf.writestr("09_两相结果.csv", _make_csv(tp_data.keys(), [tp_data.values()]))
+
+        # 汇报文档
+        report_text = f"""仿荷叶歧管微通道冷板仿真汇报
+=====================================
+生成时间: {time.strftime('%Y-%m-%d %H:%M:%S')}
+
+一、工况参数
+  热流密度: {heat_flux:.1f} W/cm²
+  单相流量: {sp_flow:.1f} g/s (水)
+  两相流量: {tp_flow:.1f} g/s ({tp_fluid})
+  进口温度: {T_inlet:.1f} °C
+
+二、单相水冷结果
+  最高壁温: {sp_res_main.T_wall_max:.1f} °C
+  换热系数: {sp_res_main.h_conv_cm2:.2f} W/(cm²·K)
+  压降: {sp_res_main.pressure_drop/1000:.1f} kPa
+  热阻: {sp_res_main.thermal_resistance:.4f} (cm²·K)/W
+  COP: {sp_res_main.COP:.0f}
+
+三、两相沸腾结果
+  最高壁温: {tp_res_main.T_wall_max:.1f} °C
+  换热系数: {tp_res_main.h_conv_cm2:.2f} W/(cm²·K)
+  压降: {tp_res_main.pressure_drop/1000:.1f} kPa
+  热阻: {tp_res_main.thermal_resistance:.4f} (cm²·K)/W
+  COP: {tp_res_main.COP:.0f}
+  CHF: {tp_res_main.CHF:.1f} W/cm²
+  流型: {tp_res_main.flow_pattern_name}
+
+四、对比结论
+  换热系数提升: {(cp_main.h_ratio-1)*100:.1f}%
+  热阻降低: {(1-tp_res_main.thermal_resistance/sp_res_main.thermal_resistance)*100:.1f}%
+  推荐: {'两相方案更优' if cp_main.h_ratio > 1 else '单相方案更优'}
+
+五、文献参考
+  Xin Z, et al. Energy, 2025
+  Xin Z, et al. Energy Conversion and Management, 2026
+"""
+        zf.writestr("00_汇报摘要.txt", report_text.encode('utf-8'))
+
+    zip_buf.seek(0)
+    st.download_button("📥 下载完整汇报ZIP", data=zip_buf.getvalue(),
+                      file_name=f"coldplate_report_{time.strftime('%Y%m%d_%H%M%S')}.zip",
+                      mime="application/zip", key="dl_full_report")
+    st.success("汇报包已生成！包含几何图、性能曲线、数据表和汇报摘要。")
+
+
 # ===== 主界面标签页 =====
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "📐 几何结构", "💧 单相水冷", "🔥 两相沸腾", "📊 对比分析", "📈 敏感性分析"
+tab0, tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    "📋 摘要仪表盘", "📐 几何结构", "💧 单相水冷", "🔥 两相沸腾", "📊 对比分析", "📈 敏感性分析", "🔍 模型验证"
 ])
+
+
+# ===== Tab0: 摘要仪表盘 =====
+with tab0:
+    st.subheader("🔑 关键性能指标")
+
+    # KPI卡片 - 4列
+    col_k1, col_k2, col_k3, col_k4 = st.columns(4)
+
+    with col_k1:
+        st.metric("COP (单相)", f"{sp_res_main.COP:.0f}",
+                  delta=f"{cp_main.sp_COP - cp_main.tp_COP:.0f}" if cp_main.sp_COP > cp_main.tp_COP else f"{cp_main.sp_COP - cp_main.tp_COP:.0f}",
+                  delta_color="inverse")
+    with col_k2:
+        st.metric("COP (两相)", f"{tp_res_main.COP:.0f}",
+                  delta=f"{(cp_main.tp_COP/cp_main.sp_COP - 1)*100:.1f}%")
+    with col_k3:
+        st.metric("热阻 (单相)", f"{sp_res_main.thermal_resistance:.3f}", "cm²·K/W")
+    with col_k4:
+        st.metric("热阻 (两相)", f"{tp_res_main.thermal_resistance:.3f}", "cm²·K/W")
+
+    st.divider()
+
+    # 第二行KPI
+    col_k5, col_k6, col_k7, col_k8 = st.columns(4)
+    with col_k5:
+        st.metric("壁温 (单相)", f"{sp_res_main.T_wall_max:.1f}°C")
+    with col_k6:
+        st.metric("壁温 (两相)", f"{tp_res_main.T_wall_max:.1f}°C")
+    with col_k7:
+        st.metric("压降 (单相)", f"{sp_res_main.pressure_drop/1000:.1f} kPa")
+    with col_k8:
+        st.metric("压降 (两相)", f"{tp_res_main.pressure_drop/1000:.1f} kPa")
+
+    st.divider()
+
+    # 雷达图和结论
+    col_radar, col_conclusion = st.columns([3, 2])
+
+    with col_radar:
+        st.subheader("单相 vs 两相 雷达图")
+        # 用matplotlib绘制雷达图
+        categories = ['COP\n(对数)', '换热系数\nh', '壁温均匀性\n(反比)', '压降\n(反比)', '热阻\n(反比)']
+        # 归一化到0-1 (注意: TwoPhaseResult没有delta_T_wall, 用T_wall_max-T_wall_avg近似)
+        sp_dtw = max(sp_res_main.delta_T_wall, 0.1)
+        tp_dtw = max(tp_res_main.T_wall_max - tp_res_main.T_wall_avg, 0.1)
+        cop_max = max(cp_main.sp_COP, cp_main.tp_COP, 1)
+        h_max = max(sp_res_main.h_conv_cm2, tp_res_main.h_conv_cm2, 0.001)
+        sp_vals = [
+            np.log10(max(sp_res_main.COP, 1)) / np.log10(cop_max),
+            sp_res_main.h_conv_cm2 / h_max,
+            (1.0/sp_dtw) / ((1.0/sp_dtw) + (1.0/tp_dtw)),
+            (1.0/max(sp_res_main.pressure_drop, 1)) / ((1.0/max(sp_res_main.pressure_drop, 1)) + (1.0/max(tp_res_main.pressure_drop, 1))),
+            (1.0/max(sp_res_main.thermal_resistance, 0.001)) / ((1.0/max(sp_res_main.thermal_resistance, 0.001)) + (1.0/max(tp_res_main.thermal_resistance, 0.001))),
+        ]
+        tp_vals = [
+            np.log10(max(tp_res_main.COP, 1)) / np.log10(cop_max),
+            tp_res_main.h_conv_cm2 / h_max,
+            (1.0/tp_dtw) / ((1.0/sp_dtw) + (1.0/tp_dtw)),
+            (1.0/max(tp_res_main.pressure_drop, 1)) / ((1.0/max(sp_res_main.pressure_drop, 1)) + (1.0/max(tp_res_main.pressure_drop, 1))),
+            (1.0/max(tp_res_main.thermal_resistance, 0.001)) / ((1.0/max(sp_res_main.thermal_resistance, 0.001)) + (1.0/max(tp_res_main.thermal_resistance, 0.001))),
+        ]
+
+        angles = np.linspace(0, 2 * np.pi, len(categories), endpoint=False).tolist()
+        angles += angles[:1]
+        sp_vals += sp_vals[:1]
+        tp_vals += tp_vals[:1]
+
+        fig_radar, ax_r = plt.subplots(figsize=(6, 6), subplot_kw=dict(polar=True))
+        ax_r.plot(angles, sp_vals, 'b-o', linewidth=2, label='单相水冷')
+        ax_r.fill(angles, sp_vals, alpha=0.15, color='blue')
+        ax_r.plot(angles, tp_vals, 'r-s', linewidth=2, label='两相沸腾')
+        ax_r.fill(angles, tp_vals, alpha=0.15, color='red')
+        ax_r.set_xticks(angles[:-1])
+        ax_r.set_xticklabels(categories, fontsize=9)
+        ax_r.set_ylim(0, 1.1)
+        ax_r.set_title('性能对比雷达图 (归一化)', fontsize=12, pad=20)
+        ax_r.legend(loc='upper right', bbox_to_anchor=(1.3, 1.1))
+        plt.tight_layout()
+        st.pyplot(fig_radar)
+        st.download_button("📥 导出雷达图PNG", data=_fig_to_png(fig_radar),
+                          file_name="radar_chart.png", mime="image/png", key="dl_radar")
+
+    with col_conclusion:
+        st.subheader("📝 结论摘要")
+        h_improve = (cp_main.h_ratio - 1) * 100
+        rth_improve = (1 - cp_main.Rth_ratio) * 100 if hasattr(cp_main, 'Rth_ratio') else (1 - tp_res_main.thermal_resistance/sp_res_main.thermal_resistance) * 100
+        rth_improve = (1 - tp_res_main.thermal_resistance/sp_res_main.thermal_resistance) * 100
+
+        st.success(f"""
+        **工况**: q={heat_flux:.0f} W/cm², 单相m={sp_flow:.0f}g/s, 两相m={tp_flow:.0f}g/s
+
+        **关键发现**:
+        - 两相换热系数提升 **{h_improve:.1f}%**
+        - 两相热阻降低 **{rth_improve:.1f}%**
+        - 两相壁温: {tp_res_main.T_wall_max:.1f}°C {"✅" if tp_res_main.T_wall_max < 85 else "⚠️"}
+        - CHF裕量: {tp_res_main.CHF_margin*100:.1f}%
+        - 流型: {tp_res_main.flow_pattern_name}
+
+        **推荐**: {"两相沸腾冷却方案性能更优" if h_improve > 0 else "单相水冷方案在此工况下更优"}
+        """)
+
+    st.divider()
+
+    # 安全工作区标注
+    st.subheader("⚠️ 安全工作区")
+    qf_range = np.linspace(20, min(300, tp_res_main.CHF * 0.9), 50)
+    sp_tw = [sp_sim_main.simulate(q, sp_flow, T_inlet).T_wall_max for q in qf_range]
+    tp_tw = [tp_sim_main.simulate(q, tp_flow, T_inlet).T_wall_max for q in qf_range]
+
+    fig_safe, ax_safe = plt.subplots(figsize=(10, 4))
+    ax_safe.plot(qf_range, sp_tw, 'b-', linewidth=2, label='单相水冷')
+    ax_safe.plot(qf_range, tp_tw, 'r-', linewidth=2, label='两相沸腾')
+    ax_safe.axhline(y=85, color='green', linestyle='--', alpha=0.7, label='安全限 85°C')
+    ax_safe.axhline(y=100, color='red', linestyle='--', alpha=0.7, label='危险限 100°C')
+    ax_safe.axvline(x=tp_res_main.CHF, color='orange', linestyle=':', alpha=0.7, label=f'CHF={tp_res_main.CHF:.0f}')
+    # 安全区域绿色背景
+    ax_safe.axhspan(0, 85, alpha=0.05, color='green')
+    ax_safe.axhspan(85, 100, alpha=0.05, color='yellow')
+    ax_safe.axhspan(100, 200, alpha=0.05, color='red')
+    ax_safe.set_xlabel('热流密度 [W/cm²]')
+    ax_safe.set_ylabel('壁温 [°C]')
+    ax_safe.set_title('壁温 vs 热流密度 (含安全区标注)')
+    ax_safe.legend(fontsize=8)
+    ax_safe.grid(True, alpha=0.3)
+    ax_safe.set_ylim(20, max(max(sp_tw), max(tp_tw), 100) + 10)
+    plt.tight_layout()
+    st.pyplot(fig_safe)
+    st.download_button("📥 导出安全工作区图PNG", data=_fig_to_png(fig_safe),
+                      file_name="safety_zone.png", mime="image/png", key="dl_safety")
 
 # ===== Tab1: 几何结构 =====
 with tab1:
@@ -186,6 +430,12 @@ with tab1:
         st.pyplot(fig_cross)
         st.download_button("📥 导出截面图PNG", data=_fig_to_png(fig_cross),
                            file_name="geometry_crosssection.png", mime="image/png", key="dl_geo_cross")
+
+    st.subheader("3D 分层爆炸视图")
+    fig_3d = plot_geometry_3d_explosion(geo)
+    st.pyplot(fig_3d)
+    st.download_button("📥 导出3D爆炸视图PNG", data=_fig_to_png(fig_3d),
+                       file_name="geometry_3d_explosion.png", mime="image/png", key="dl_geo_3d")
 
     st.divider()
     st.subheader("几何参数摘要")
@@ -567,6 +817,73 @@ with tab5:
     - 径向短通道 → 低压降 (比传统降低50.72%)
     - 温度均匀性提升43.74%
     """)
+
+    st.divider()
+    st.subheader("全局敏感性分析 (Morris方法)")
+
+    sa_type = st.radio("分析类型", ["单相水冷", "两相沸腾"], horizontal=True, key="sa_type_radio")
+    sa_sim_type = "single_phase" if sa_type == "单相水冷" else "two_phase"
+
+    if st.button("运行全局敏感性分析", key="run_sa"):
+        with st.spinner("正在运行Morris敏感性分析..."):
+            analyzer = SensitivityAnalyzer(sa_sim_type)
+            analyzer.run_morris(n_trajectories=5)
+
+            col_sa1, col_sa2 = st.columns(2)
+            with col_sa1:
+                st.markdown("##### 敏感性热力图")
+                fig_heat = analyzer.plot_sensitivity_heatmap()
+                st.pyplot(fig_heat)
+                st.download_button("📥 导出热力图PNG", data=_fig_to_png(fig_heat),
+                                  file_name="sensitivity_heatmap.png", mime="image/png", key="dl_sa_heat")
+
+            with col_sa2:
+                st.markdown("##### 龙卷风图")
+                fig_torn = analyzer.plot_tornado()
+                st.pyplot(fig_torn)
+                st.download_button("📥 导出龙卷风图PNG", data=_fig_to_png(fig_torn),
+                                  file_name="sensitivity_tornado.png", mime="image/png", key="dl_sa_torn")
+
+# ===== Tab6: 模型验证 =====
+with tab6:
+    st.subheader("模型验证与不确定性量化")
+    st.info("基于文献实验数据的多点验证矩阵，含±30%关联式误差带")
+
+    validator = ModelValidator()
+
+    col_val1, col_val2 = st.columns(2)
+    with col_val1:
+        st.markdown("##### 预测值 vs 文献参考值")
+        fig_parity = validator.plot_validation()
+        st.pyplot(fig_parity)
+        st.download_button("📥 导出验证对比图PNG", data=_fig_to_png(fig_parity),
+                          file_name="validation_parity.png", mime="image/png", key="dl_val_parity")
+
+    with col_val2:
+        st.markdown("##### 误差分布")
+        fig_err = validator.plot_error_distribution()
+        st.pyplot(fig_err)
+        st.download_button("📥 导出误差分布图PNG", data=_fig_to_png(fig_err),
+                          file_name="validation_errors.png", mime="image/png", key="dl_val_err")
+
+    st.divider()
+
+    # 验证统计
+    stats = validator.compute_statistics()
+    st.markdown("##### 验证统计汇总")
+    for key, val in stats.items():
+        if isinstance(val, (int, float)):
+            st.metric(key, f"{val:.2f}")
+
+    st.divider()
+
+    # 验证报告
+    st.markdown("##### 验证报告 (Markdown)")
+    report_md = validator.generate_report()
+    st.download_button("📥 导出验证报告MD", data=report_md.encode('utf-8'),
+                      file_name="validation_report.md", mime="text/markdown", key="dl_val_report")
+    with st.expander("查看报告内容"):
+        st.markdown(report_md)
 
 # ===== 底部 =====
 st.divider()

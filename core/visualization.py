@@ -1,4 +1,4 @@
-﻿"""
+"""
 仿荷叶歧管微通道冷板 - 可视化模块
 =============================================
 matplotlib / plotly 双引擎
@@ -116,10 +116,10 @@ def plot_geometry_topview(geo: ManifoldRingChannelGeometry,
                         xytext=(r_arrow_start * np.cos(a_center), r_arrow_start * np.sin(a_center)),
                         arrowprops=dict(arrowstyle='->', color=ec, lw=1.8), zorder=5)
         else:
-            # 出液歧管: 从外向中心 (红色箭头)
+            # 出液歧管: 从中心向外 (红色箭头)
             ax.annotate('',
-                        xy=(r_arrow_start * np.cos(a_center), r_arrow_start * np.sin(a_center)),
-                        xytext=(r_arrow * np.cos(a_center), r_arrow * np.sin(a_center)),
+                        xy=(r_arrow * np.cos(a_center), r_arrow * np.sin(a_center)),
+                        xytext=(r_arrow_start * np.cos(a_center), r_arrow_start * np.sin(a_center)),
                         arrowprops=dict(arrowstyle='->', color=ec, lw=1.8), zorder=5)
 
     # === 出液歧管外端收集区域 (红色, 导向4个出口) ===
@@ -491,6 +491,178 @@ def plot_sensitivity_analysis(sim_type: str = "single_phase",
         ax.grid(True, alpha=0.3)
 
     fig.suptitle(f'{title_prefix} - Sensitivity Analysis', fontsize=13, fontweight='bold')
+    plt.tight_layout()
+    if save_path:
+        fig.savefig(save_path, dpi=200, bbox_inches='tight')
+    return fig
+
+def plot_geometry_3d_explosion(geo: ManifoldRingChannelGeometry,
+                                save_path: str = None) -> plt.Figure:
+    """绘制3D分层爆炸视图
+
+    从下到上依次展示:
+    1. 铜基板 (peru色, 含热源标注)
+    2. 环形微通道层 (展示通道+翅片交替)
+    3. 歧管层 (蓝色进液+红色出液交替扇区)
+    4. 中心入口管道 (顶部)
+
+    每层之间有垂直间隙，形成爆炸效果
+    """
+    from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+    from matplotlib.patches import Patch
+    from matplotlib.lines import Line2D
+
+    # 中文字体设置
+    plt.rcParams['font.sans-serif'] = ['Microsoft YaHei', 'SimHei']
+    plt.rcParams['axes.unicode_minus'] = False
+
+    fig = plt.figure(figsize=(12, 10))
+    ax = fig.add_subplot(111, projection='3d')
+
+    # ===== 基本参数 =====
+    cp_half = geo.coldplate_length / 2          # 冷板半边长 [mm]
+    r_chip = geo.chip_length / 2                 # 芯片/热源半径 [mm]
+    r_inlet = geo.inlet_diameter / 2             # 中心入口半径 [mm]
+    gap = 2.0                                    # 层间垂直间隙 [mm]
+
+    base_h = geo.base_thickness                  # 基板厚度 [mm]
+    ch_h = geo.channel_height                    # 微通道层厚度 [mm]
+    man_h = geo.manifold_height                  # 歧管层厚度 [mm]
+
+    r_max = max(geo.ring_radii) + geo.ring_spacing  # 最外圈半径 [mm]
+
+    # 各层底部z坐标 (z为垂直方向, 从下到上递增)
+    z_base = 0.0
+    z_channel = base_h + gap
+    z_manifold = base_h + ch_h + 2 * gap
+    z_inlet_pipe = base_h + ch_h + man_h + 3 * gap
+
+    # ===== Layer 1: 铜基板 (peru色) =====
+    ax.bar3d(-cp_half, -cp_half, z_base,
+             geo.coldplate_length, geo.coldplate_width, base_h,
+             color='peru', edgecolor='saddlebrown', linewidth=0.5, alpha=0.9)
+
+    # 热源区域 (红色虚线圆, 标注在基板顶面)
+    theta_c = np.linspace(0, 2 * np.pi, 100)
+    z_chip_line = z_base + base_h + 0.05
+    ax.plot(r_chip * np.cos(theta_c), r_chip * np.sin(theta_c),
+            np.full_like(theta_c, z_chip_line),
+            'r--', linewidth=2.0, label='热源区域 (芯片)')
+
+    # ===== Layer 2: 环形微通道层 =====
+    # 微通道层底板 (浅铜色半透明)
+    ax.bar3d(-cp_half, -cp_half, z_channel,
+             geo.coldplate_length, geo.coldplate_width, ch_h,
+             color='#d4a76a', edgecolor='#8b6f3a', linewidth=0.5, alpha=0.4)
+
+    # 环形微通道 + 翅片 (同心圆, 在微通道层顶面绘制)
+    z_ch_top = z_channel + ch_h + 0.02
+    for i, r in enumerate(geo.ring_radii):
+        theta = np.linspace(0, 2 * np.pi, 120)
+        # 通道 (白色细环)
+        ax.plot(r * np.cos(theta), r * np.sin(theta),
+                np.full_like(theta, z_ch_top),
+                color='white', linewidth=0.7)
+        # 翅片中心线 (铜色)
+        r_fin = r + geo.ring_spacing / 2
+        ax.plot(r_fin * np.cos(theta), r_fin * np.sin(theta),
+                np.full_like(theta, z_ch_top),
+                color='#b87333', linewidth=0.4)
+
+    # 中心区域翅片阵列 (inlet_diameter/2 内, 径向翅片)
+    n_center_fins = 8
+    for j in range(n_center_fins):
+        ang = 2 * np.pi * j / n_center_fins
+        ax.plot([0, r_inlet * np.cos(ang)],
+                [0, r_inlet * np.sin(ang)],
+                [z_ch_top, z_ch_top],
+                color='#b87333', linewidth=0.7)
+
+    # ===== Layer 3: 歧管层 (8蓝进液 + 8红出液交替扇区) =====
+    dtheta = 2 * np.pi / geo.n_sectors  # 每个扇区角跨度
+    z_man_bot = z_manifold
+    z_man_top = z_manifold + man_h
+    n_arc = 20  # 扇区弧线分段数
+
+    for i in range(geo.n_sectors):
+        a_center = i * dtheta
+        a_start = a_center - dtheta / 2
+        a_end = a_center + dtheta / 2
+        theta_arc = np.linspace(a_start, a_end, n_arc)
+
+        if i % 2 == 0:
+            # 进液扇区 (蓝色)
+            fc, ec = '#4a90d9', '#1f4e79'
+        else:
+            # 出液扇区 (红色)
+            fc, ec = '#d94a4a', '#7a1f1f'
+
+        # 底面顶点 (内弧 → 外弧反向, 构成环形扇区多边形)
+        verts_bot = ([[r_inlet * np.cos(t), r_inlet * np.sin(t), z_man_bot]
+                      for t in theta_arc] +
+                     [[r_max * np.cos(t), r_max * np.sin(t), z_man_bot]
+                      for t in theta_arc[::-1]])
+        # 顶面顶点
+        verts_top = ([[r_inlet * np.cos(t), r_inlet * np.sin(t), z_man_top]
+                      for t in theta_arc] +
+                     [[r_max * np.cos(t), r_max * np.sin(t), z_man_top]
+                      for t in theta_arc[::-1]])
+
+        poly = Poly3DCollection([verts_bot, verts_top],
+                                facecolor=fc, edgecolor=ec,
+                                linewidth=0.5, alpha=0.6)
+        ax.add_collection3d(poly)
+
+    # ===== Layer 4: 中心入口管道 (顶部小圆柱) =====
+    pipe_h = 2.0  # 管道高度 [mm]
+    n_pipe = 40
+    theta_pipe = np.linspace(0, 2 * np.pi, n_pipe)
+    z_pipe = np.linspace(z_inlet_pipe, z_inlet_pipe + pipe_h, 20)
+    theta_grid, z_grid = np.meshgrid(theta_pipe, z_pipe)
+    x_pipe = r_inlet * np.cos(theta_grid)
+    y_pipe = r_inlet * np.sin(theta_grid)
+    ax.plot_surface(x_pipe, y_pipe, z_grid, color='#4a90d9',
+                    edgecolor='#1f4e79', linewidth=0.3, alpha=0.85)
+
+    # ===== 标注线和文字 (各层名称) =====
+    label_x = cp_half + 5  # 标注x位置 (冷板右侧外)
+    ax.text(label_x, 0, z_base + base_h / 2, '铜基板\n(Copper Base)',
+            fontsize=9, color='saddlebrown', fontweight='bold')
+    ax.text(label_x, 0, z_channel + ch_h / 2, '环形微通道层\n(Ring Channels)',
+            fontsize=9, color='#8b6f3a', fontweight='bold')
+    ax.text(label_x, 0, z_manifold + man_h / 2, '歧管层\n(Manifold)',
+            fontsize=9, color='black', fontweight='bold')
+    ax.text(label_x, 0, z_inlet_pipe + pipe_h / 2, '中心入口管\n(Inlet Pipe)',
+            fontsize=9, color='#1f4e79', fontweight='bold')
+
+    # ===== 图例 =====
+    legend_elements = [
+        Patch(facecolor='peru', edgecolor='saddlebrown', label='铜基板'),
+        Patch(facecolor='#d4a76a', edgecolor='#8b6f3a', label='微通道翅片'),
+        Patch(facecolor='#4a90d9', edgecolor='#1f4e79', label='进液歧管'),
+        Patch(facecolor='#d94a4a', edgecolor='#7a1f1f', label='出液歧管'),
+        Line2D([0], [0], color='red', linestyle='--', linewidth=2, label='热源区域'),
+    ]
+    ax.legend(handles=legend_elements, loc='upper left', fontsize=9)
+
+    # ===== 视角与坐标轴 =====
+    ax.view_init(elev=25, azim=45)
+    ax.set_xlabel('X [mm]')
+    ax.set_ylabel('Y [mm]')
+    ax.set_zlabel('Z [mm] (厚度方向)')
+    ax.set_title('仿荷叶歧管环形微通道冷板 - 3D爆炸视图', fontsize=13, fontweight='bold')
+
+    # 坐标轴范围
+    ax.set_xlim(-cp_half - 8, cp_half + 8)
+    ax.set_ylim(-cp_half - 8, cp_half + 8)
+    ax.set_zlim(0, z_inlet_pipe + pipe_h + 2)
+
+    # 保持纵横比 (旧版matplotlib无此方法, 异常时忽略)
+    try:
+        ax.set_box_aspect((1, 1, 0.6))
+    except Exception:
+        pass
+
     plt.tight_layout()
     if save_path:
         fig.savefig(save_path, dpi=200, bbox_inches='tight')
